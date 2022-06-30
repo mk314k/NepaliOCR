@@ -1,28 +1,40 @@
 import numpy as np
 import cv2
 import os
-import ghostscript
-import locale
-#from pathlib import Path
-#path=Path('.').absolute().__str__()
-#print(fpath)
+from pdfClass import superPDF
+from detector import detect
+from recognizer import recognize
+
 filepath = os.getcwd()
-#print(filepath)
 
-def pdf2jpeg(pdf_input_path, jpeg_output_path):
-    args = ["pef2jpeg", # actual value doesn't matter
-            "-dNOPAUSE",
-            "-sDEVICE=jpeg",
-            "-r144",
-            "-sOutputFile=" + jpeg_output_path,
-            pdf_input_path]
+def main(fileName):
+    pdfIn = superPDF(fileName, mode='r')
+    imgNames=pdfIn.toImage()
+    pdfOut = superPDF(fileName[:-4]+'-out.pdf',mode='w')
+    for imgName in imgNames:
+        pdfOut.newPage()
+        img = cv2.imread(imgName)
+        extractedData = detect(img)
+        for imgData in extractedData.texts():
+            imgBlock = extractedData.getImage(imgData)
+            textBlock = recognize(imgBlock)
+            pdfOut.addText(textBlock,imgData)
 
-    encoding = locale.getpreferredencoding()
-    args = [a.encode(encoding) for a in args]
+        for imgData in extractedData.images():
+            img=extractedData.getImage(imgData)
+            pdfOut.addImage(img,imgData)
 
-    ghostscript.Ghostscript(*args)
+    pdfOut.close()
+    pdfIn.close()
 
-#pdf2jpeg(filepath+"/NepaliOCR/NepaliOCR/bhanutest.pdf",filepath+"/out%02d.jpg")
+            
 
-def pdfToImages(filename:str):
-    print(os.environ)
+
+
+
+
+    pass
+
+if __name__=='__main__':
+    #TODO UI to get filename
+    main(filepath+"")
