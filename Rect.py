@@ -11,7 +11,7 @@ class Rect():
     @constructs an instance of rectangle 
     """
     def __init__(self,x,y,width,height) -> None:
-        self.lowerLeftVertex=Point(x,y)
+        #self.lowerLeftVertex=Point(x,y)
         self.x=x
         self.y=y
         self.height=height
@@ -27,6 +27,14 @@ class Rect():
     def isOverlapping(self,rect:object)->bool:
         tf = lambda p:p[0]>=self.x and p[1]>=self.y and p[0]<=self.x+self.width and p[1]<=self.y+self.height
         return tf((rect.x,rect.y)) or tf((rect.x+rect.width,rect.y)) or tf((rect.x,rect.y+rect.height)) or tf((rect.x+rect.width,rect.y+rect.height))
+
+    def update(self,rect:object)->None:
+        rect2 = self.__add__(rect)
+        self.x=rect2.x
+        self.y=rect2.y
+        self.height=rect2.height
+        self.width=rect2.width
+
     def __add__(self,rect:object)->object:
         x=min(self.x,rect.x)
         y=min(self.y,rect.y)
