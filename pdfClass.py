@@ -18,7 +18,7 @@ class PDFReader():
         args = ["pef2jpeg", # actual value doesn't matter
             "-dNOPAUSE",
             "-sDEVICE=jpeg",
-            "-r144",
+            "-r300",
             "-sOutputFile=" + self.fileName[:-4]+'%02d.jpg',
             self.fileName]
 
