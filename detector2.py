@@ -1,6 +1,7 @@
 import cv2
 from cv2 import THRESH_BINARY
 import numpy as np
+from RectSet import RectSet
 from Rect import Rect
 import os
 
@@ -49,8 +50,8 @@ def doubleContourDetect(img_o):
 
     for i in range(2):
         img_g =cv2.cvtColor(img,cv2.COLOR_BGR2GRAY)
-        #img_t=cv2.adaptiveThreshold(img_g,255,cv2.ADAPTIVE_THRESH_MEAN_C,THRESH_BINARY,45,12) #TODO fix the parameters
-        r, img_t=cv2.threshold(img_g,DETECTREGION,255,0)
+        img_t=cv2.adaptiveThreshold(img_g,255,cv2.ADAPTIVE_THRESH_MEAN_C,THRESH_BINARY,45,12) #TODO fix the parameters
+        #r, img_t=cv2.threshold(img_g,DETECTREGION,255,0)
         showImage(f"thresh{i}",img_t)
         contours,hier=cv2.findContours(img_t,cv2.RETR_TREE,cv2.CHAIN_APPROX_SIMPLE)
         #showImage(f'img{i}',img)
@@ -63,40 +64,27 @@ def doubleContourDetect(img_o):
     # imgc =imgc//COLORREDUCER*COLORREDUCER+COLORREDUCER//2
 
     #showImage("imgc",imgc)
-    allrects=[]
+    allrects=RectSet((imgWidth,imgHeight))
     print(len(contours))
+
     for contour in contours:
         x,y,w,h= cv2.boundingRect(contour)
-        newRect = Rect(x,y,w,h)
+        newRect = Rect(x,y,width=w,height=h)
         if w<REJECTWIDTHFRAC*imgWidth and h<REJECTHEIGHTFRAC*imgHeight:
-            contArea=cv2.contourArea(contour)
-            rectUpdated = False
-            for rect in allrects:
-                if newRect.isOverlapping(rect):
-                    #rect.colr=(rect.colr+averageColor(contour))//2
-                    rect.update(newRect)
-                    rect.contArea = rect.contArea + contArea
-                    rectUpdated = True
-                    break
-            #print(len(allrects),rectUpdated)
-            if not rectUpdated:
-                #newRect.colr = averageColor(contour)//2
-                newRect.contArea = contArea
-                allrects.append(newRect)
-    i=0
-    while i<len(allrects):
-        
-        i=i+1
+            #print(newRect)
+            newRect.contArea=cv2.contourArea(contour)
+            allrects.addRect(newRect)
     print('---------------------------------------------All contour processed--------------------------')
     for rect in allrects:
-        if abs(rect.area()-rect.contArea) < AREAFACTOR*rect.area():
-            c=colorCount(rect)
-            if c<=TABLEUNIQUECOLOR:
-                tables.append(rect)
-            else:
-                images.append(rect)
-        else:
-            rects.append(rect)
+        rects.append(rect)
+        # if abs(rect.area()-rect.contArea) < AREAFACTOR*rect.area():
+        #     c=colorCount(rect)
+        #     if c<=TABLEUNIQUECOLOR:
+        #         tables.append(rect)
+        #     else:         
+        #         images.append(rect)
+        # else:
+        #     rects.append(rect)
 
     return {
         'rects':rects,
@@ -162,29 +150,29 @@ def detect(img_o,detectFunc=doubleContourDetect):
 
     showImage("img_detcted",img_o)
     cv2.waitKey(0)
-    for i, r in enumerate(rects):
-        for j, r1 in enumerate(rects):
-            if i!=j and r.isOverlapping(r1):
-                print(r,r1)
+    # for i, r in enumerate(rects):
+    #     for j, r1 in enumerate(rects):
+    #         if i!=j and r.isOverlapping(r1):
+    #             print(r,r1)
     print("printed")
 
 
     for rect in rects:
         #print(rect)
         cv2.rectangle(img_o,(rect.lowerLeftPoint()[0],rect.lowerLeftPoint()[1]),(rect.upperRightPoint()[0],rect.upperRightPoint()[1]),(0,0,255),2)
-        print(colorCount(rect))
+        #print(colorCount(rect))
         showImage("img_detcted",img_o)
         cv2.waitKey(0)
 
     for table in tables:
         cv2.rectangle(img_o,(table.lowerLeftPoint()[0],table.lowerLeftPoint()[1]),(table.upperRightPoint()[0],table.upperRightPoint()[1]),(0,255,0),2)
-        print(colorCount(table))
+        #print(colorCount(table))
         showImage("img_detcted",img_o)
         cv2.waitKey(0)
 
     for table in images:
         cv2.rectangle(img_o,(table.lowerLeftPoint()[0],table.lowerLeftPoint()[1]),(table.upperRightPoint()[0],table.upperRightPoint()[1]),(255,0,0),2)
-        print(colorCount(table))
+        #print(colorCount(table))
         showImage("img_detcted",img_o)
         cv2.waitKey(0) 
 
@@ -232,15 +220,23 @@ def preprocess(img):
     imgp=cascading([blur,colorReduce],img)
     return imgp
 
+def conv(img):
+    dim=45
+    kern = np.ones((dim,dim))/dim**2
+    imgr =cv2.filter2D(img,ddepth=-1,kernel=kern)
+    return imgr
+
 def detect2(img):
     showImage('original',img)
     #showImage('preprocesed',preprocess(img))
     imgc = colorReduce(img)
     showImage("8color",imgc)
+    showImage("convol",conv(imgc))
+    detect(conv(imgc))
     cv2.waitKey(0)
     cv2.destroyAllWindows()
 
 
 img = cv2.imread("D:/OCR_Project/train/out23.jpg")
 #img = cv2.imread(FILEPATH+"/images/Gr9_Science_and_Technology_NP_CDC_1st_2079BS-page-023.jpg")
-detect(img)
+detect(img[0:400,0:400])
