@@ -1,27 +1,5 @@
 from Point import Point
-"""
-A rectangular frame
-"""
-class Rectangle():
-    __x1:int
-    __x2:int
-    __y1:int
-    __y2:int
-    # def lowerLeftPoint():
-    #     pass
-    # def lowerRightPoint(self)->Point:
-    #     pass
-    # def upperLeftPoint(self)->Point:
-    #     pass
-    # def upperRightPoint(self)->Point:
-    #    pass  
-    def isOverlapping(self,rect:object,padding=0)->bool:
-        pass
-    def update(self,rect:object)->None:
-        pass
-    def overlapUpdate(self,rect:object)->bool:
-        pass
-
+from interfaces import Rectangle
 class Rect():
     """
     @param x is x coordinate of lower left vertex of the rectangle
@@ -86,8 +64,8 @@ class Rect():
     def update(self,rect:Rectangle)->None:
         self.__x1 = min(self.__x1, rect.__x1)
         self.__y1 = min(self.__y1, rect.__y1)
-        self.__x2 = min(self.__x2, rect.__x2)
-        self.__y2 = min(self.__y2, rect.__y2)
+        self.__x2 = max(self.__x2, rect.__x2)
+        self.__y2 = max(self.__y2, rect.__y2)
 
     def overlapUpdate(self,rect:Rectangle,padding=0)->bool:
         result = self.isOverlapping(rect,padding)

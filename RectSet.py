@@ -1,45 +1,45 @@
 from Rect import Rect
 import numpy as np
 from DynamicNP import DynamicNpy
+from num import Num
 
 class RectSet():
     def __init__(self,dimension:int|tuple,blockSize=200,blockMode=True) -> None:
         self.__blocksize = blockSize
         self.__blockMode = blockMode
-        self.__image = DynamicNpy(Rect)
+        self.image = DynamicNpy(Rect)
         if isinstance(dimension,int):
             dimension =(dimension,dimension)
         self.__dimension = dimension
         if blockMode:
             dimension = (dimension[0]//blockSize+1,dimension[1]//blockSize+1)
-            self.__blocks = np.array([None]*dimension[0]*dimension[1]).reshape(dimension).astype(DynamicNpy)
-        
+            self.indexArray = np.array([None]*dimension[0]*dimension[1]).reshape(dimension).astype(DynamicNpy)
     def __eq__(self, o: object) -> bool:
-        return self.__image.__eq__(o.__image)
+        return self.image.__eq__(o.image)
 
     def addRect (self,rect:Rect):
-        indice = range(0,self.__image.size())
         if self.__blockMode:
-            blocks = rect.getblocks()
+            blocks = rect.getblocks(self.__blocksize)
             for block in blocks:
-                indice = indice + self.__blocks[block] #TODO
-        
-        for index in indice:
-            if self.__image[index]==None:
-                self.__image[index]=DynamicNpy()
-            else:
-                for i, existingRect in enumerate(self.__image[index]):
-                    if isinstance(existingRect,Rect) and existingRect.isOverlapping(rect):
-                        rect.update(existingRect)
-                        self.__image[block].removeIndex(i)
-                        print("overlapping",rect,existingRect,self.__image)
-            self.__image[block].append(rect)
-        print(rect,self.__image)
+                if self.indexArray[block]==None:
+                    self.indexArray[block]=DynamicNpy(Num)
+                else:
+                    for i, index in enumerate(self.indexArray[block]):
+                        if rect.overlapUpdate(self.image[index.num]):
+                            self.image.removeIndex(index.num)
+                            self.indexArray[block].removeIndex(i)
+            index = self.image.append(rect)
+            index = Num(index)
+            for block in blocks:
+                self.indexArray[block].append(index)
+
+        #else:
+            #TODO
     def __iter__(self):
-        yield from self.__image
+        yield from self.image
 
     def __repr__(self) -> str:
-        return self.__image.__repr__()
+        return self.image.__repr__()
         pass
 
 
