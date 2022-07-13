@@ -1,5 +1,6 @@
 from Point import Point
 from interfaces import Rectangle
+import math
 class Rect():
     """
     @param x is x coordinate of lower left vertex of the rectangle
@@ -8,21 +9,19 @@ class Rect():
     @param height is height of the rectangle
     @constructs an instance of rectangle 
     """
-    def __init__(self,x1:float,y1:float,x2=0,y2=0,width=None,height=None,contArea=None,colr=None) -> None:
+    def __init__(self,x1:float,y1:float,x2=0,y2=0,width=None,height=None,type='text',colr=None) -> None:
         self.__x1 = x1
         self.__y1 = y1
         secondPntInit = lambda pntWidth: pntWidth[1] if pntWidth[2]==None else pntWidth[0]+pntWidth[2]
         self.__x2:float = secondPntInit((x1,x2,width))
         self.__y2:float = secondPntInit((y1,y2,height))
         self.colr=colr
-        self.contArea=contArea
+        self.__type=type
 
     def width(self):
         return self.__x2 - self.__x1
     def height(self):
         return self.__y2 - self.__y1
-
-
     def area(self):
         return self.width()*self.height()
 
@@ -58,9 +57,6 @@ class Rect():
             self.__x2 < rect.__x1 + 2*padding[0] or 
             self.__y2 < rect.__y1 + 2*padding[1])
 
-    # def __contains__(self,point:Point)->bool:
-    #     return point.isUpperRightTo(self.__origin) and self.upperRightPoint().isUpperRightTo(point)
-
     def update(self,rect:Rectangle)->None:
         self.__x1 = min(self.__x1, rect.__x1)
         self.__y1 = min(self.__y1, rect.__y1)
@@ -75,34 +71,28 @@ class Rect():
     def getblocks(self,blocksize):
         x1 = self.__x1//blocksize
         y1 = self.__y1//blocksize
-        x2 = self.__x2//blocksize+1
-        y2 = self.__y2//blocksize+1
+        x2 = math.ceil(self.__x2/blocksize)
+        y2 = math.ceil(self.__y2/blocksize)
         blocks=[]
         for x in range(x1,x2):
             for y in range(y1,y2):
-                blocks.append((x,y))
+                blocks.append((y,x))
         return blocks
 
-
-    # def __add__(self,rect:Rectangle)->Rectangle:
-    #     minOrigin=self.__origin.minXYCompare(rect.__origin)
-    #     dimension = self.upperRightPoint().maxXYCompare(rect[2])
-    #     return Rect(
-    #         minOrigin[0],
-    #         minOrigin[1],
-    #         dimension[0]-minOrigin[0],
-    #         dimension[1]-minOrigin[1]
-    #     )
-    # def __sub__(self,rect:Rectangle)->Rectangle:
-    #     __x=max(self.__x,rect.__x)
-    #     y=max(self.y,rect.y)
-    #     return Rect(
-    #         __x,
-    #         y,
-    #         min(self.x+self.width,rect.x+rect.width)-x,
-    #         min(self.y+self.height,rect.y+rect.height)-y
-    #     )
     def __str__(self)->str:
         return self.__repr__()
     def __repr__(self) -> str:
         return f"({self.__x1},{self.__y1})[]({self.__x2},{self.__y2})"
+
+class textData(Rect):
+    def __init__(self, x1: float, y1: float, x2=0, y2=0, width=None, height=None, contArea=None, colr=None) -> None:
+        super().__init__(x1, y1, x2, y2, width, height, contArea, colr)
+
+    def __instancecheck__(self, __instance:object) -> bool:
+        return super().__instancecheck__(__instance)
+
+
+class RectType():
+    text = 0
+    table =1
+    image = 2
