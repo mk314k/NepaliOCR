@@ -1,4 +1,5 @@
 from fpdf import FPDF
+from PyPDF2 import PdfReader
 from PIL import Image
 import cv2
 import numpy as np
@@ -18,20 +19,22 @@ class PDFReader():
         args = ["pef2jpeg", # actual value doesn't matter
             "-dNOPAUSE",
             "-sDEVICE=jpeg",
-<<<<<<< HEAD
-            "-r300",
-            "-sOutputFile=" + self.fileName[:-4]+'%02d.jpg',
-            self.fileName]
-=======
             "-r144",
             "-sOutputFile=" + self.__fileName[:-4]+'%02d.jpg',
             self.__fileName]
->>>>>>> 155da628fe0d5ad7d521192209d5e8b9089e03bd
 
         encoding = locale.getpreferredencoding()
         args = [a.encode(encoding) for a in args]
 
         ghostscript.Ghostscript(*args)
+
+    def extractText(self,pages:int|list|range=-1):
+        pdf = PdfReader(self.__fileName)
+        if pages==-1:pages=range(pdf.getNumPages())
+        for page_count in pages:
+            page = pdf.getPage(page_count)
+            page_data = page.extractText()
+        return page_data
 
 
 class PDFWriter():
