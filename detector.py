@@ -19,7 +19,7 @@ def colorSpread(img8, pointSet:np.ndarray):
         colors.append(clr)
     return np.std(np.array(colors))
 
-def doubleContourDetect(img_o,imgSource=None):
+def doubleContourDetect(img_o,padding=0,iteration=2,imgSource=None)->RectSet:
     img=np.array(img_o)
     img8=img//64*64+32 
     img8 = cv2.cvtColor(img8,cv2.COLOR_BGR2HSV)
@@ -29,7 +29,7 @@ def doubleContourDetect(img_o,imgSource=None):
     extractedData = RectSet((imgWidth,imgHeight),source=imgSource)
  
     #TODO use cascading and remove this loop
-    for i in range(2):
+    for i in range(iteration):
         img_g =cv2.cvtColor(img,cv2.COLOR_BGR2GRAY)
         #img_t=cv2.adaptiveThreshold(img_g,255,cv2.ADAPTIVE_THRESH_MEAN_C,THRESH_BINARY,45,12) #TODO fix the parameters
         r, img_t=cv2.threshold(img_g,DETECTREGION,255,1)
@@ -52,7 +52,8 @@ def doubleContourDetect(img_o,imgSource=None):
                     newRect.type = 'Image'
             if newRect.type == 'text' and cspr >14:
                 newRect.type='Image'   
-            extractedData.addRect(newRect)
+            #newRect.type = 'Table'
+            extractedData.addRect(newRect,padding)
 
     print('---------------------------------------All contour processed--------------------------')
 
@@ -75,7 +76,7 @@ def detectByBlur(imgo:np.ndarray):
     #img_b =cv2.GaussianBlur(img,(blurCx,blurCy),25,25 )
     img_b = cv2.medianBlur(img,min(blurCx,blurCy))
     showImage("blurred",img_b)
-    #detect(img_b)
+    detect(imgd,padding=20,iteration=1)
     # r, img_t=cv2.threshold(img_b,DETECTREGION,255,0)
     # c,h=cv2.findContours(img_t,cv2.RETR_TREE,cv2.CHAIN_APPROX_SIMPLE)
     # cv2.drawContours(img,c,-1,(255,0,0),3)
@@ -89,12 +90,12 @@ def detectByBlur(imgo:np.ndarray):
     cv2.waitKey(0)
     cv2.destroyAllWindows()
 
-def detect(img_o,detectFunc=doubleContourDetect):
+def detect(img_o,detectFunc=doubleContourDetect,padding=0,iteration=2)->RectSet:
     img=np.array(img_o)
-    allrects=detectFunc(img)
+    allrects:RectSet=detectFunc(img,padding,iteration)
 
     def colorCount(rect:Rect)->int:
-        return 1
+        return 1 
         p1=rect.lowerLeftPoint()
         p2=rect.upperRightPoint()
         imgd=imgc[p1[0]:p2[0],p1[1]:p2[1]]
@@ -113,8 +114,6 @@ def detect(img_o,detectFunc=doubleContourDetect):
     #showImage("imgc",imgc)
     #print(rects)
 
-    showImage("img_detcted",img_o)
-    cv2.waitKey(0)
     # for i, r in enumerate(rects):
     #     for j, r1 in enumerate(rects):
     #         if i!=j and r.isOverlapping(r1):
@@ -124,16 +123,16 @@ def detect(img_o,detectFunc=doubleContourDetect):
     img8 = cv2.cvtColor(img8,cv2.COLOR_BGR2HSV)
 
     for rect in rects:
-        #print(rect)
+        print(rect)
         colr = (0,0,255)
         if rect.type == 'Table': 
             colr = (0,255,0)
         elif rect.type =='Image':
             colr = (255,0,0)
-        cv2.rectangle(img_o,(rect.lowerLeftPoint()[0],rect.lowerLeftPoint()[1]),(rect.upperRightPoint()[0],rect.upperRightPoint()[1]),colr,2)
+        cv2.rectangle(img_o,(rect.lowerLeftPoint()[0],rect.lowerLeftPoint()[1]),(rect.upperRightPoint()[0],rect.upperRightPoint()[1]),colr,4)
         #print(colorCount(rect))
-        showImage("img_detcted",img_o)
-        cv2.waitKey(0)
+    showImage("img_detcted",img_o)
+    cv2.waitKey(0)
 
     # for table in tables:
     #     cv2.rectangle(img_o,(table.lowerLeftPoint()[0],table.lowerLeftPoint()[1]),(table.upperRightPoint()[0],table.upperRightPoint()[1]),(0,255,0),2)
@@ -147,51 +146,14 @@ def detect(img_o,detectFunc=doubleContourDetect):
     #     showImage("img_detcted",img_o)
     #     cv2.waitKey(0) 
 
-    img_r = cv2.resize(img_o,(600,800))
-    cv2.imshow("img_detcted",img_r)
-    cv2.waitKey(0)
     cv2.destroyAllWindows()
 
-    return {
-        "height":imgHeight,
-        "width":imgWidth,
-        "rects":rects
-    }
+    return rects
 
 #doubleContourDetect("024.jpg")
 #detectByBlur("024.jpg")
 #detector("024.jpg")  #images\Gr9_Science_and_Technology_NP_CDC_1st_2079BS-page-003.jpg
 
-def sizeTransform(img):
-    w,h,c=img.shape
-    if w>IMGMAXSIZE:
-        h=IMGMAXSIZE*h//w
-        w=IMGMAXSIZE
-    if h>IMGMAXSIZE:
-        w=IMGMAXSIZE*w//h
-        h=IMGMAXSIZE
-    w=w//32*32
-    h=h//32*32
-    imgp = cv2.resize(img,(w,h))
-    print(w,h)
-    return imgp
-
-gblur = lambda im: 2*cv2.GaussianBlur(im,(25,25),25,sigmaY=25)
-blur = lambda im: 2*cv2.blur(im,(45,45))
-colorReduce = lambda im: im//COLORREDUCER*COLORREDUCER+COLORREDUCER//2
-
-
-
-def preprocess(img):
-    
-    imgp=cascading([blur,colorReduce],img)
-    return imgp
-
-def conv(img):
-    dim=45
-    kern = np.ones((dim,dim))/dim**2
-    imgr =cv2.filter2D(img,ddepth=-1,kernel=kern)
-    return imgr
 
 def detect2(img):
     showImage('original',img)
@@ -203,7 +165,26 @@ def detect2(img):
     cv2.waitKey(0)
     cv2.destroyAllWindows()
 
+def detectBylines(img):
+    imgb = cv2.medianBlur(img,3)
+    showImage("blur", imgb)
+    imgg = cv2.cvtColor(imgb,cv2.COLOR_BGR2GRAY)
+    showImage("gray",imgg)
+    r, imgt = cv2.threshold(imgg,DETECTREGION,255,1)
+    showImage("thresh",imgt)
+    print(cv2.countNonZero(imgt))
+    hi = np.diff(np.count_nonzero(imgt,axis=1))
+    gi = np.count_nonzero(imgt,axis=0)
+    for h in range(len(hi)):
+        cv2.line(img,(0,h),(hi[h],h),(255,0,0),1)
 
-img = cv2.imread("D:/OCR_Project/train/out23.jpg")
+    # for h in range(len(gi)):
+    #     cv2.line(img,(h,0),(h,gi[h]),(0,0,255),1)
+    showImage("counted",img)
+    cv2.waitKey(0)
+    cv2.destroyAllWindows()
+
+img = cv2.imread("D:/OCR_Project/test/out23.jpg")
 #img = cv2.imread(FILEPATH+"/images/Gr9_Science_and_Technology_NP_CDC_1st_2079BS-page-023.jpg")
-detectByBlur(img)
+detectBylines(img)
+# detect(img)
