@@ -1,6 +1,7 @@
 import cv2
 import numpy as np
 import math
+from Rect import Rect
 
 REJECTWIDTHFRAC =0.8
 REJECTHEIGHTFRAC =0.8
@@ -24,3 +25,28 @@ def cascading(funcs, img,repeat=1):
             imgp=func(imgp)
         repeat-=1
     return imgp
+
+def colorSpread(img8, pointSet:np.ndarray):
+    #TODO use dynamicNPy instead of list
+    points =pointSet.flatten()
+    colors = []
+    n=len(points)
+    for i in range(0,n,2):
+        clr=img8[points[i+1]][points[i]][0]
+        colors.append(clr)
+    return np.std(np.array(colors))
+
+def boundingObject(contour):
+
+    """AI is creating summary for boundingObject
+    Change Me if wordArt or non-rectangular text.
+    You may need to create a new class as well
+
+    Args:
+        contour ([type]): [description]
+
+    Returns:
+        [type]: [description]
+    """
+    x,y,w,h = cv2.boundingRect(contour)
+    return Rect(x,y,width=w,height=h)
