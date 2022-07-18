@@ -5,6 +5,7 @@ from RectSet import RectSet
 from Rect import Rect
 from utility import *
 import os
+from scipy.signal import find_peaks
 
 #global constants and factors
 FILEPATH = os.getcwd()
@@ -155,28 +156,39 @@ def detect(img_o,detectFunc=doubleContourDetect,padding=0,iteration=2)->RectSet:
 #detector("024.jpg")  #images\Gr9_Science_and_Technology_NP_CDC_1st_2079BS-page-003.jpg
 
 
-def detect2(img):
-    showImage('original',img)
-    #showImage('preprocesed',preprocess(img))
-    imgc = colorReduce(img)
-    showImage("8color",imgc)
-    showImage("convol",conv(imgc))
-    detect(conv(imgc))
-    cv2.waitKey(0)
-    cv2.destroyAllWindows()
+# def detect2(img):
+#     showImage('original',img)
+#     #showImage('preprocesed',preprocess(img))
+#     imgc = colorReduce(img)
+#     showImage("8color",imgc)
+#     showImage("convol",conv(imgc))
+#     detect(conv(imgc))
+#     cv2.waitKey(0)
+#     cv2.destroyAllWindows()
 
 def detectBylines(img):
-    imgb = cv2.medianBlur(img,3)
-    showImage("blur", imgb)
-    imgg = cv2.cvtColor(imgb,cv2.COLOR_BGR2GRAY)
+    iw,ih,ic =img.shape
+    # imgb = cv2.medianBlur(img,3)
+    # imgb = cv2.erode(imgb,np.ones((3,3)),iterations=1)
+    # showImage("blur", imgb)
+    imgg = cv2.cvtColor(img,cv2.COLOR_BGR2GRAY)
     showImage("gray",imgg)
     r, imgt = cv2.threshold(imgg,DETECTREGION,255,1)
     showImage("thresh",imgt)
     print(cv2.countNonZero(imgt))
-    hi = np.diff(np.count_nonzero(imgt,axis=1))
+    imgt=255-imgt
+    hi = np.count_nonzero(imgt,axis=1)
+    #hi=2*np.diff(hi)+np.diff(hi[::-1])
+    #hpi = find_peaks(hi)[0]
+    hpi = range(len(hi))
     gi = np.count_nonzero(imgt,axis=0)
-    for h in range(len(hi)):
-        cv2.line(img,(0,h),(hi[h],h),(255,0,0),1)
+    prev_h =-5
+    for h in hpi:
+        if hi[h] == ih:
+            if h - prev_h > 0:
+                cv2.line(img,(0,h),(hi[h],h),(255,0,0),1)
+            prev_h =h
+
 
     # for h in range(len(gi)):
     #     cv2.line(img,(h,0),(h,gi[h]),(0,0,255),1)
@@ -184,7 +196,7 @@ def detectBylines(img):
     cv2.waitKey(0)
     cv2.destroyAllWindows()
 
-img = cv2.imread("D:/OCR_Project/test/out23.jpg")
+img = cv2.imread("/Users/kartikeshmishra/Kartikesh/NepaliOCR/NepaliOCR/trainImages/gr9sctrain23.jpg")
 #img = cv2.imread(FILEPATH+"/images/Gr9_Science_and_Technology_NP_CDC_1st_2079BS-page-023.jpg")
 detectBylines(img)
 # detect(img)
