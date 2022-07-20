@@ -1,14 +1,8 @@
 import cv2
-from cv2 import THRESH_BINARY
 import numpy as np
 from RectSet import RectSet
 from Rect import Rect
 from utility import *
-import os
-from scipy.signal import find_peaks
-
-#global constants and factors
-FILEPATH = os.getcwd()
 
 def colorSpread(img8, pointSet:np.ndarray):
     #TODO use dynamicNPy instead of list
@@ -20,6 +14,16 @@ def colorSpread(img8, pointSet:np.ndarray):
         colors.append(clr)
     return np.std(np.array(colors))
 
+def contourCorrection(imgo:np.ndarray,iteration=2)->np.ndarray:
+    img = np.array(imgo)
+    #TODO use cascading and remove this loop
+    for i in range(iteration):
+        imgg = cv2.cvtColor(img,cv2.COLOR_BGR2GRAY)
+        r, imgt = cv2.threshold(imgg,DETECTREGION,255,1)
+        contours, hier = cv2.findContours(imgt,cv2.RETR_TREE,cv2.CHAIN_APPROX_SIMPLE)
+        cv2.drawContours(img,contours,-1,(255,0,0),i+2)
+    return img, contours
+
 def doubleContourDetect(img_o,padding=0,iteration=2,imgSource=None)->RectSet:
     img=np.array(img_o)
     img8=img//64*64+32 
@@ -29,7 +33,7 @@ def doubleContourDetect(img_o,padding=0,iteration=2,imgSource=None)->RectSet:
 
     extractedData = RectSet((imgWidth,imgHeight),source=imgSource)
  
-    #TODO use cascading and remove this loop
+    
     for i in range(iteration):
         img_g =cv2.cvtColor(img,cv2.COLOR_BGR2GRAY)
         #img_t=cv2.adaptiveThreshold(img_g,255,cv2.ADAPTIVE_THRESH_MEAN_C,THRESH_BINARY,45,12) #TODO fix the parameters
@@ -106,20 +110,7 @@ def detect(img_o,detectFunc=doubleContourDetect,padding=0,iteration=2)->RectSet:
         return len(u)
 
     imgWidth,imgHeight,imgChannel=img.shape
-    
-    #print(allrects)
     rects=allrects
-    # tables=allrects['tables']
-    # images=allrects['images']
-    #imgc=allrects['imgc']
-    #showImage("imgc",imgc)
-    #print(rects)
-
-    # for i, r in enumerate(rects):
-    #     for j, r1 in enumerate(rects):
-    #         if i!=j and r.isOverlapping(r1):
-    #             print(r,r1)
-    print("printed")
     img8=img//128*128+64 
     img8 = cv2.cvtColor(img8,cv2.COLOR_BGR2HSV)
 
@@ -131,72 +122,56 @@ def detect(img_o,detectFunc=doubleContourDetect,padding=0,iteration=2)->RectSet:
         elif rect.type =='Image':
             colr = (255,0,0)
         cv2.rectangle(img_o,(rect.lowerLeftPoint()[0],rect.lowerLeftPoint()[1]),(rect.upperRightPoint()[0],rect.upperRightPoint()[1]),colr,4)
-        #print(colorCount(rect))
     showImage("img_detcted",img_o)
     cv2.waitKey(0)
-
-    # for table in tables:
-    #     cv2.rectangle(img_o,(table.lowerLeftPoint()[0],table.lowerLeftPoint()[1]),(table.upperRightPoint()[0],table.upperRightPoint()[1]),(0,255,0),2)
-    #     #print(colorCount(table))
-    #     showImage("img_detcted",img_o)
-    #     cv2.waitKey(0)
-
-    # for table in images:
-    #     cv2.rectangle(img_o,(table.lowerLeftPoint()[0],table.lowerLeftPoint()[1]),(table.upperRightPoint()[0],table.upperRightPoint()[1]),(255,0,0),2)
-    #     #print(colorCount(table))
-    #     showImage("img_detcted",img_o)
-    #     cv2.waitKey(0) 
 
     cv2.destroyAllWindows()
 
     return rects
 
-#doubleContourDetect("024.jpg")
-#detectByBlur("024.jpg")
-#detector("024.jpg")  #images\Gr9_Science_and_Technology_NP_CDC_1st_2079BS-page-003.jpg
+def customDetector(rectDetection=None):
+    return lambda img : rectDetection(img)
 
-
-# def detect2(img):
-#     showImage('original',img)
-#     #showImage('preprocesed',preprocess(img))
-#     imgc = colorReduce(img)
-#     showImage("8color",imgc)
-#     showImage("convol",conv(imgc))
-#     detect(conv(imgc))
-#     cv2.waitKey(0)
-#     cv2.destroyAllWindows()
+def getPeaks(allLines,maxLength):
+    peakLines =[]
+    prevI=0
+    for lineI, lineW in enumerate(allLines):
+        if lineW >= maxLength:
+            if lineI - prevI>1:
+                if prevI != -2 : peakLines.append(prevI)
+                peakLines.append(lineI)
+            prevI = lineI
+    return peakLines
 
 def detectBylines(img):
-    iw,ih,ic =img.shape
-    # imgb = cv2.medianBlur(img,3)
-    # imgb = cv2.erode(imgb,np.ones((3,3)),iterations=1)
-    # showImage("blur", imgb)
+    imgHeight,imgWidth,imgChannel =img.shape
     imgg = cv2.cvtColor(img,cv2.COLOR_BGR2GRAY)
-    showImage("gray",imgg)
     r, imgt = cv2.threshold(imgg,DETECTREGION,255,1)
-    showImage("thresh",imgt)
-    print(cv2.countNonZero(imgt))
     imgt=255-imgt
-    hi = np.count_nonzero(imgt,axis=1)
-    #hi=2*np.diff(hi)+np.diff(hi[::-1])
-    #hpi = find_peaks(hi)[0]
-    hpi = range(len(hi))
-    gi = np.count_nonzero(imgt,axis=0)
-    prev_h =-5
-    for h in hpi:
-        if hi[h] == ih:
-            if h - prev_h > 0:
-                cv2.line(img,(0,h),(hi[h],h),(255,0,0),1)
-            prev_h =h
+    
+    allLines = np.count_nonzero(imgt,axis=1)
 
+    peakLines =getPeaks(allLines,imgWidth)
+    extractedRects = RectSet((imgHeight,imgWidth))
+    allRects = []
 
-    # for h in range(len(gi)):
-    #     cv2.line(img,(h,0),(h,gi[h]),(0,0,255),1)
-    showImage("counted",img)
+    for i in range(0,len(peakLines)-1,2):
+        imgtt = imgt[peakLines[i]:peakLines[i+1],:]
+        vlines = np.count_nonzero(imgtt,axis=0)
+        vpeaks = getPeaks(vlines,peakLines[i+1]-peakLines[i])
+        for j in range(0,len(vpeaks)-1,2):
+            rect = Rect(vpeaks[j],peakLines[i],vpeaks[j+1],peakLines[i+1])
+            extractedRects.addRect(rect)
+            allRects.append(rect)
+        
+    return extractedRects,allRects
+
+if __name__ == '__main__': 
+    img = cv2.imread("/Users/kartikeshmishra/Kartikesh/NepaliOCR/NepaliOCR/testImages/out23.jpg")
+    rects = detectBylines(img)
+    for rect in rects[1]:
+        cv2.rectangle(img,rect['lowerLeft'],rect['upperRight'],(255,0,0),1)
+
+    showImage("image",img)
     cv2.waitKey(0)
     cv2.destroyAllWindows()
-
-img = cv2.imread("/Users/kartikeshmishra/Kartikesh/NepaliOCR/NepaliOCR/trainImages/gr9sctrain23.jpg")
-#img = cv2.imread(FILEPATH+"/images/Gr9_Science_and_Technology_NP_CDC_1st_2079BS-page-023.jpg")
-detectBylines(img)
-# detect(img)

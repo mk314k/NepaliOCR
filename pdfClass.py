@@ -3,21 +3,25 @@ from PyPDF2 import PdfReader
 from PIL import Image
 import cv2
 import numpy as np
-import os
 import ghostscript 
 import locale
+import os
 
 class PDFReader():
     def __init__(self,fileName:str) -> None:
         self.__fileName=fileName
         self.__pdf = PdfReader(fileName)
+
+    def totalPages(self):
+        return self.__pdf.getNumPages()
     
     def toImage(self, outExt='jpg',resolution = 300):
         if outExt=='jpg':
             return self.toJPG(resolution)
 
     def toJPG(self, resolution=300):
-        fileNameOnly = self.__fileName[:-4]
+        fileNameOnly = self.__fileName[:-4]+'Img/img'
+        os.mkdir(fileNameOnly[:-4])
         args = ["pef2jpeg", # actual value doesn't matter
             "-dNOPAUSE",
             "-sDEVICE=jpeg",
@@ -29,15 +33,15 @@ class PDFReader():
         args = [a.encode(encoding) for a in args]
         ghostscript.Ghostscript(*args)
 
-        return [f'{fileNameOnly}{i}.jpg' for i in range(self.__pdf.getNumPages())]
+        return fileNameOnly+'.jpg'
 
     def extractText(self,pages:int|list|range=-1):
         pdf = PdfReader(self.__fileName)
         if pages==-1:pages=range(pdf.getNumPages())
-        page_data =''
+        page_data =[]
         for page_count in pages:
             page = pdf.getPage(page_count)
-            page_data += page.extractText()
+            page_data.append(page.extractText())
         return page_data
 
 
@@ -63,13 +67,13 @@ class PDFWriter():
     # def close(self):
     #     self.__pdf.output(self.__filename)
 
-def superPDF(fileName:str,mode='r')->object:
-    if mode =='r':
-        return PDFReader(fileName)
-    elif mode=='w':
-        return PDFWriter(fileName)
-    else:
-        assert(False,"mode not recognized")
+# def superPDF(fileName:str,mode='r')->object:
+#     if mode =='r':
+#         return PDFReader(fileName)
+#     elif mode=='w':
+#         return PDFWriter(fileName)
+#     else:
+#         assert(False,"mode not recognized")
 
 
 
