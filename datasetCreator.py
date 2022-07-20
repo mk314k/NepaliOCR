@@ -2,7 +2,7 @@ from fileinput import filename
 from PyPDF2 import PageRange
 import numpy as np
 from detector import detectBylines
-from utility import showImage, preeti2Uni
+from utility import showImage, preeti2Uni, keyBoard
 import cv2
 from pdfClass import PDFReader
 from tkinter import Checkbutton, Tk,Text,Button,END,filedialog,BooleanVar,Radiobutton,IntVar
@@ -107,6 +107,13 @@ def nextClick():
     pageNum.set(pageNum.get()+1)
     main()
 
+def keyPressed(event):
+    keyP = event.char
+    if nepaliTyping.get() and keyP in keyBoard:
+        keyP = keyBoard[keyP]
+    event.widget.insert("insert", keyP)
+    return "break"
+
 if __name__ == '__main__':
     ws = Tk()
     ws.title('DataSet Collector')
@@ -171,9 +178,15 @@ if __name__ == '__main__':
         bg='#ffffff'
     )
     textbox.place(x=95, y=100)
+    textbox.bind("<Key>",keyPressed)
+
     convertText = BooleanVar()
     checkbox = Checkbutton (ws, text = "Need Unicode Conversion", variable = convertText, onvalue = True, offvalue = False)
     checkbox.place(x=600, y=20)
+
+    nepaliTyping = BooleanVar()
+    checkbox = Checkbutton (ws, text = "Nepali Typing", variable = nepaliTyping, onvalue = True, offvalue = False)
+    checkbox.place(x=600, y=45)
 
     saveAsImg = BooleanVar()
     R1 = Radiobutton(ws, text="Save as rects", variable=saveAsImg, value=False)

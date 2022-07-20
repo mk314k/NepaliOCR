@@ -113,3 +113,12 @@ def preeti2Uni(text):
     for c in text:
         result=result+devunicode(c)
     return result
+
+keyBoard ={
+    'a':'अ',
+    'b':'ब',
+    'c':'',
+    'd':'',
+    'e':'',
+    'A':"ा",
+}
