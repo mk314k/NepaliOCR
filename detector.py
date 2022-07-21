@@ -38,11 +38,11 @@ def doubleContourDetect(img_o,padding=0,iteration=2,imgSource=None)->RectSet:
         img_g =cv2.cvtColor(img,cv2.COLOR_BGR2GRAY)
         #img_t=cv2.adaptiveThreshold(img_g,255,cv2.ADAPTIVE_THRESH_MEAN_C,THRESH_BINARY,45,12) #TODO fix the parameters
         r, img_t=cv2.threshold(img_g,DETECTREGION,255,1)
-        showImage(f"thresh{i}",img_t)
+        #showImage(f"thresh{i}",img_t)
         contours,hier=cv2.findContours(img_t,cv2.RETR_TREE,cv2.CHAIN_APPROX_SIMPLE)
         #if i==1: break
         cv2.drawContours(img,contours,-1,(255,0,0),i+3)#TODO contour color should be decided. A good approach is to draw inverse of image background
-        showImage(f'img{i}',img)
+        #showImage(f'img{i}',img)
     print('----------------------------------all contours found------------------')
 
     for contour in contours:
@@ -62,7 +62,7 @@ def doubleContourDetect(img_o,padding=0,iteration=2,imgSource=None)->RectSet:
 
     print('---------------------------------------All contour processed--------------------------')
 
-    return extractedData
+    return extractedData,[]
    
 
 def detectByBlur(imgo:np.ndarray):
