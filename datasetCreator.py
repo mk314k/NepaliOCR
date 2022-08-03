@@ -1,9 +1,10 @@
 import numpy as np
-from detector import detectBylines,doubleContourDetect
+from detector import detectBylines,doubleContourDetect,detect
 from utility import showImage, preeti2Uni, keyBoard
 import cv2
-from pdfClass import PDFReader
+from customDataStruct.pdfClass import PDFReader
 from tkinter import Checkbutton,Tk,Text,Button,END,filedialog,BooleanVar,Radiobutton,IntVar,INSERT
+from docxParse import parseDocx
 
 globalData ={}
 
@@ -22,7 +23,7 @@ def showAllDetectedRegion(imgo:np.ndarray, imageTitle:str, showLabel=False, sour
     img = np.array(imgo)
     label = 1
     result = {}
-    detectedRects = doubleContourDetect(img)[0]
+    detectedRects = detectBylines(img)[0]
     for rect in detectedRects:
         cv2.rectangle(img,rect["lowerLeft"], rect["upperRight"], (0,0,255), 2)
         if source:
@@ -93,7 +94,10 @@ def get_new_pdf():
     pdf = PDFReader(filename)
     imgNames = pdf.toImage()
     globalData['imgNames'] = imgNames
-    allTexts = pdf.extractText()
+    if docText.get():
+        allTexts = parseDocx(filename[:-3]+'docx')
+    else:
+        allTexts = pdf.extractText()
     if convertText.get():
         allTexts =[preeti2Uni(text) for text in allTexts]
     with open (filename[:-4]+'.prg', 'w') as file:
@@ -173,12 +177,13 @@ def handleLabel():
     textbox.insert(END,result)
 
 if __name__ == '__main__':
-    winH, winW = 700,900
+    #TODO tweak the parameters for different pc may require little experimentation 
+    winH, winW = 800,1000
     ws = Tk()
     ws.title('DataSet Collector')
     ws.geometry(f'{winW}x{winH}')
     ws.config(bg='#000000')
-    Button(
+    loadPdf = Button(
         ws,
         text='New Pdf',
         padx=20,
@@ -186,9 +191,8 @@ if __name__ == '__main__':
         bg='#000088',
         fg='blue',
         command=get_new_pdf
-    ).place(x=0, y=0)
-
-    Button(
+    )
+    loadPrg = Button(
         ws,
         text='Load Progress',
         padx=20,
@@ -196,9 +200,8 @@ if __name__ == '__main__':
         bg='cyan',
         fg='blue',
         command=loadProgress
-    ).place(x=100, y=0)
-
-    Button(
+    )
+    savePage = Button(
         ws,
         text='Save Page',
         padx=20,
@@ -206,10 +209,8 @@ if __name__ == '__main__':
         bg='#ff00ff',
         fg='blue',
         command=submit_text
-    ).place(x=winW-200, y=winH-50)
-    pageNum = IntVar()
-
-    Button(
+    )
+    prev = Button(
         ws,
         text='Prev',
         padx=20,
@@ -217,9 +218,8 @@ if __name__ == '__main__':
         bg='#ff00ff',
         fg='blue',
         command=prevClick
-    ).place(x=0, y=winH//2-30)
-
-    Button(
+    )
+    nextButton = Button(
         ws,
         text='Next',
         padx=20,
@@ -227,9 +227,8 @@ if __name__ == '__main__':
         bg='#ff00ff',
         fg='blue',
         command=nextClick
-    ).place(x=winW-100, y=winH//2-30)
-
-    Button(
+    )
+    labeler = Button(
         ws,
         text='Label',
         padx=20,
@@ -237,7 +236,20 @@ if __name__ == '__main__':
         bg='#ff00ff',
         fg='blue',
         command=handleLabel
-    ).place(x=0, y=winH-100)
+    )
+
+    loadPdf.place(x=0, y=0)             #Top Left placing
+    loadPrg.place(x=winW//10, y=0)      #right next to previous button
+    savePage.place(x=4*winW//5, y=19*winH//20) #bottom Right
+    prev.place(x=0, y=9*winH//20)
+    nextButton.place(x=9*winW//10, y=9*winH//20)
+    labeler.place(x=0, y=7*winH//8)
+
+    docText = BooleanVar()
+    checkbox = Checkbutton (ws, text = "Separate Doc for text", variable = docText, onvalue = True, offvalue = False)
+    checkbox.place(x=0, y=winH//12)
+
+    pageNum = IntVar()
 
     textbox = Text(
         ws,
@@ -246,7 +258,7 @@ if __name__ == '__main__':
         wrap='word',
         bg='#ffffff'
     )
-    textbox.place(x=100, y=100)
+    textbox.place(x=winW//10, y=winH//8)
     textbox.bind("<Key>",keyPressed)
     textbox.bind("<Control-v>",pasteText)
     textbox.bind("<BackSpace>",lambda _ :textbox.delete(INSERT-1))
@@ -254,17 +266,17 @@ if __name__ == '__main__':
 
     convertText = BooleanVar()
     checkbox = Checkbutton (ws, text = "Need Unicode Conversion", variable = convertText, onvalue = True, offvalue = False)
-    checkbox.place(x=winW-300, y=20)
+    checkbox.place(x=7*winW//10, y=winH//40)
 
     nepaliTyping = BooleanVar()
     checkbox = Checkbutton (ws, text = "Nepali Typing", variable = nepaliTyping, onvalue = True, offvalue = False)
-    checkbox.place(x=winW-300, y=45)
+    checkbox.place(x=7*winW//10, y=winH//20)
 
     saveAsImg = BooleanVar()
     R1 = Radiobutton(ws, text="Save as rects", variable=saveAsImg, value=False)
-    R1.place(x=winW//2, y=winH-70)
+    R1.place(x=winW//2, y=9*winH//10)
     R2 = Radiobutton(ws, text="Save as Images", variable=saveAsImg, value=True)
-    R2.place(x=winW//2+100,y=winH-70)
+    R2.place(x=6*winW//10,y=9*winH//10)
 
     ws.mainloop()
 
