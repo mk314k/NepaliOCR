@@ -1,16 +1,15 @@
 import numpy as np
-from interfaces import classObj
 
 class DynamicNpy():
     
-    def __init__(self,objectType:classObj,initlen=2,allowedObjType=None) -> None:
+    def __init__(self,objectType:type,initlen=2,allowedObjType=None) -> None:
         """AI is creating summary for __init__
 
         Args:
             objectType ([type]): [description]
             initlen (int, optional): [description]. Defaults to 2.
         """
-        self.__array = np.array([None]*initlen).astype(objectType)
+        self.__array = np.array([None]*initlen).astype(object)
         self.__nullIndex = []
         self.__objType = objectType
         self.__lastValueIndex =-1
@@ -25,9 +24,11 @@ class DynamicNpy():
         Returns:
             [type]: [description]
         """
+        if (index<0 or index>=self.size()):
+            raise Exception(f"Index out of bound. Array is size of {self.size()} while {index} is called")
         return self.__array[index]
 
-    def __setitem(self,index:int,value:classObj):
+    def __setitem(self,index:int,value:object):
         # if not isinstance(value,self.__objType):
         #     if isinstance(value,self.__allowedObjType):
         #         value=self.__objType(value)
@@ -48,6 +49,8 @@ class DynamicNpy():
     #     _=self.__setitem(index,value)
 
     def append(self,value):
+        if not isinstance(value,self.__objType):
+            raise Exception("ValueType Error")
         index = self.__lastValueIndex + 1
         if self.__nullIndex:
             index = self.__nullIndex.pop()
@@ -63,7 +66,7 @@ class DynamicNpy():
         #     arr = 
 
     def size(self):
-        return self.__array.size
+        return self.__lastValueIndex+1
 
     def __iter__(self):
         for obj in self.__array:

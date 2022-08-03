@@ -47,14 +47,24 @@ class PDFReader():
 
 class PDFWriter():
     def __init__(self,filename) -> None:
-        self.__pdfData= None
-        #self.__pdf =FPDF(orientation='P',unit='mm', format='A4')
+        self.__pdfData= {'text':[]}
         self.__filename = filename
+        self.__textSize = 0
+        self.__textColr = (255,255,255)
     
-    # def addText(self,textData):
-    #     self.__pdf.set_font_size(textData['size'])
-    #     self.__pdf.set_text_color(*textData['colr'])
-    #     self.__pdf.cell(textData['width'],textData['height'],textData['text'])
+    def addText(self,textData):
+        tData = {}
+        tData['sizeChanged'] = False
+        tData['colorChanged'] = False
+        if textData['size'] != self.__textSize:
+            self.__textSize = textData['size']
+            tData['size'] = textData['size']
+            tData['sizeChanged'] = True
+        if textData['colr'] != self.__textColr:
+            self.__textColr = textData['colr']
+            tData['colr'] = textData['colr']
+            tData['colrChanged'] = True
+        tData['text'] = textData['text']
 
     # def addImage(self,imageData):
     #     img=Image.fromarray(imageData['img'])
@@ -64,16 +74,22 @@ class PDFWriter():
 
     #     pass
     
-    # def close(self):
-    #     self.__pdf.output(self.__filename)
+    def close(self):
+        pdf =FPDF(orientation='P',unit='mm', format='A4')
+        for textData in self.__pdfData['text']:
+            if textData['sizeChanged']: pdf.set_font_size(textData['size'])
+            if textData['colrChanged']: pdf.set_text_color(*textData['colr'])
+            pdf.cell(textData['width'],textData['height'],textData['text'])
 
-# def superPDF(fileName:str,mode='r')->object:
-#     if mode =='r':
-#         return PDFReader(fileName)
-#     elif mode=='w':
-#         return PDFWriter(fileName)
-#     else:
-#         assert(False,"mode not recognized")
+        pdf.output(self.__filename)
+
+def superPDF(fileName:str,mode='r')->object:
+    if mode =='r':
+        return PDFReader(fileName)
+    elif mode=='w':
+        return PDFWriter(fileName)
+    else:
+        assert(False,"mode not recognized")
 
 
 

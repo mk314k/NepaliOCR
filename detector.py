@@ -38,11 +38,11 @@ def doubleContourDetect(img_o,padding=0,iteration=2,imgSource=None)->RectSet:
         img_g =cv2.cvtColor(img,cv2.COLOR_BGR2GRAY)
         #img_t=cv2.adaptiveThreshold(img_g,255,cv2.ADAPTIVE_THRESH_MEAN_C,THRESH_BINARY,45,12) #TODO fix the parameters
         r, img_t=cv2.threshold(img_g,DETECTREGION,255,1)
-        #showImage(f"thresh{i}",img_t)
+        showImage(f"thresh{i}",img_t)
         contours,hier=cv2.findContours(img_t,cv2.RETR_TREE,cv2.CHAIN_APPROX_SIMPLE)
         #if i==1: break
         cv2.drawContours(img,contours,-1,(255,0,0),i+3)#TODO contour color should be decided. A good approach is to draw inverse of image background
-        #showImage(f'img{i}',img)
+        showImage(f'img{i}',img)
     print('----------------------------------all contours found------------------')
 
     for contour in contours:
@@ -62,7 +62,51 @@ def doubleContourDetect(img_o,padding=0,iteration=2,imgSource=None)->RectSet:
 
     print('---------------------------------------All contour processed--------------------------')
 
-    return extractedData,[]
+    return extractedData,extractedData
+
+def contourRectDetect(img_o,padding=0,iteration=2,imgSource=None)->RectSet:
+    img=np.array(img_o)
+    img8=img//64*64+32 
+    img8 = cv2.cvtColor(img8,cv2.COLOR_BGR2HSV)
+
+    imgWidth,imgHeight,imgC =img.shape
+
+    extractedData = RectSet((imgWidth,imgHeight),source=imgSource)
+    allrects =[]
+    
+    for i in range(iteration):
+        img_g =cv2.cvtColor(img,cv2.COLOR_BGR2GRAY)
+        #img_t=cv2.adaptiveThreshold(img_g,255,cv2.ADAPTIVE_THRESH_MEAN_C,THRESH_BINARY,45,12) #TODO fix the parameters
+        r, img_t=cv2.threshold(img_g,DETECTREGION,255,1)
+        showImage(f"thresh{i}",img_t)
+        contours,hier=cv2.findContours(img_t,cv2.RETR_TREE,cv2.CHAIN_APPROX_SIMPLE)
+        #if i==1: break
+        #cv2.drawContours(img,contours,-1,(255,0,0),i+3)#TODO contour color should be decided. A good approach is to draw inverse of image background
+        for contour in contours:
+            x,y,w,h = cv2.boundingRect(contour)
+            cv2.rectangle(img, (x,y),(x+w,y+h),(255,0,0),-1)
+        showImage(f'img{i}',img)
+    print('----------------------------------all contours found------------------')
+
+    for contour in contours:
+        x,y,w,h= cv2.boundingRect(contour)
+        newRect = Rect(x,y,width=w,height=h)
+        if w<REJECTWIDTHFRAC*imgWidth and h<REJECTHEIGHTFRAC*imgHeight:
+            cspr = colorSpread(img8,contour)
+            if L1DistanceFrac((newRect.area(),cv2.contourArea(contour))) <= AREAFACTOR:
+                if cspr==0:
+                    newRect.type = "Table"
+                else:
+                    newRect.type = 'Image'
+            if newRect.type == 'text' and cspr >14:
+                newRect.type='Image'   
+            #newRect.type = 'Table'
+            extractedData.addRect(newRect,padding)
+            allrects.append(newRect)
+
+    print('---------------------------------------All contour processed--------------------------')
+
+    return extractedData,allrects
    
 
 def detectByBlur(imgo:np.ndarray):
@@ -167,10 +211,12 @@ def detectBylines(img):
     return extractedRects,allRects
 
 if __name__ == '__main__': 
-    img = cv2.imread("/Users/kartikeshmishra/Kartikesh/NepaliOCR/NepaliOCR/testImages/out23.jpg")
-    rects = detectBylines(img)
+    img = cv2.imread("/Users/kartikeshmishra/Downloads/gr7scImg/img1.jpg")
+    #rects = doubleContourDetect(img,iteration=3)
+    #rects = detectBylines(img)
+    rects = contourRectDetect(img)
     for rect in rects[1]:
-        cv2.rectangle(img,rect['lowerLeft'],rect['upperRight'],(255,0,0),1)
+        cv2.rectangle(img,rect['lowerLeft'],rect['upperRight'],(0,0,255),3)
 
     showImage("image",img)
     cv2.waitKey(0)

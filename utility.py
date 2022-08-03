@@ -15,7 +15,7 @@ L1Distance = lambda p1p2: abs(p1p2[1]-p1p2[0])
 L1DistanceFrac = lambda p1p2: L1Distance(p1p2)/p1p2[0]
 
 def showImage(name,img):
-    imgr=cv2.resize(img,(600,800))
+    imgr=cv2.resize(img,(750,1000))#600,800
     cv2.imshow(name,imgr)
 
 def cascading(funcs, img,repeat=1):

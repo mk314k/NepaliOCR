@@ -77,11 +77,11 @@ def fileSelector(ext = ("PDF files","*.pdf")):
     Returns:
         [type]: [description]
     """
-    # filename = filedialog.askopenfilename(
-    #         initialdir = "/",  
-    #         title = "Select a File",
-    #         filetypes = (ext,("all files","*.*")))
-    filename='/Users/kartikeshmishra/Kartikesh/NepaliOCR/NepaliOCR/trainImages/train.prg'
+    filename = filedialog.askopenfilename(
+            initialdir = "/",  
+            title = "Select a File",
+            filetypes = (ext,("all files","*.*")))
+    #filename='/Users/kartikeshmishra/Kartikesh/NepaliOCR/NepaliOCR/trainImages/train.prg'
     if filename:
         globalData['fileName'] = filename
         return filename
