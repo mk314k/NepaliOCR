@@ -1,11 +1,7 @@
 """
 A rectangular frame
 """
-class Rectangle():
-    __x1:int
-    __x2:int
-    __y1:int
-    __y2:int  
+class Rectangle(): 
     def isOverlapping(self,rect:object,padding=0)->bool:
         pass
     def update(self,rect:object)->None:

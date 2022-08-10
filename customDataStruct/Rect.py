@@ -1,4 +1,4 @@
-from interfaces import Rectangle
+from customDataStruct.interfaces import Rectangle
 import math
 import cv2
 import numpy as np
@@ -22,7 +22,7 @@ class Rect():
         """
         self.__x1 = x1
         self.__y1 = y1
-        secondPntInit = lambda pointData: pointData[1] if pointData[2]==None else pointData[0]+pointData[2]
+        secondPntInit = lambda pointData: pointData[1] if pointData[2]==None else pointData[0] + pointData[2]
         self.__x2:float = secondPntInit((x1,x2,width))
         self.__y2:float = secondPntInit((y1,y2,height))
         self.colr=colr
@@ -43,6 +43,7 @@ class Rect():
         return (self.__x1==o.__x1)and(self.__x2==o.__x2)and(self.__y1==o.__y1)and (self.__y2 == o.__y2)
 
     def __getitem__(self,index):
+        #TODO not efficient approach
         itemList = {'lowerLeft':(self.__x1,self.__y1), 
                     'lowerRight':(self.__x2,self.__y1),
                     'upperRight':(self.__x2,self.__y2),

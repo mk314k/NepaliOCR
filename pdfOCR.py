@@ -1,6 +1,6 @@
 import numpy as np
 import cv2
-from pdfClass import PDFReader, PDFWriter
+from customDataStruct.pdfClass import PDFReader, PDFWriter
 from detector import detect
 from recognizer import recognize
 

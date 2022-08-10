@@ -1,6 +1,6 @@
 import numpy as np
 from detector import detectBylines,doubleContourDetect,detect
-from utility import showImage, preeti2Uni, keyBoard
+from utility import showImage, preeti2Uni, nepaliKeyBoard
 import cv2
 from customDataStruct.pdfClass import PDFReader
 from tkinter import Checkbutton,Tk,Text,Button,END,filedialog,BooleanVar,Radiobutton,IntVar,INSERT
@@ -23,7 +23,7 @@ def showAllDetectedRegion(imgo:np.ndarray, imageTitle:str, showLabel=False, sour
     img = np.array(imgo)
     label = 1
     result = {}
-    detectedRects = detectBylines(img)[0]
+    detectedRects = doubleContourDetect(img)
     for rect in detectedRects:
         cv2.rectangle(img,rect["lowerLeft"], rect["upperRight"], (0,0,255), 2)
         if source:
@@ -150,8 +150,8 @@ def keyPressed(event):
         [type]: [description]
     """
     keyP = event.char
-    if nepaliTyping.get() and keyP in keyBoard:
-        keyP = keyBoard[keyP]
+    if nepaliTyping.get() and keyP in nepaliKeyBoard:
+        keyP = nepaliKeyBoard[keyP]
     event.widget.insert("insert", keyP)
     return "break"
 

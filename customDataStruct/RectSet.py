@@ -1,7 +1,7 @@
-from Rect import Rect
+from customDataStruct.Rect import Rect
 import numpy as np
-from DynamicNP import DynamicNpy
-from num import Num
+from customDataStruct.DynamicNP import DynamicNpy
+from customDataStruct.num import Num #TODO remove this dependency
 import math
 
 class RectSet():
@@ -25,7 +25,7 @@ class RectSet():
             dimension =(dimension,dimension)
         self.__dimension = dimension
         if blockMode:
-            dimension = (math.ceil(dimension[0]/blockSize),math.ceil(dimension[1]/blockSize))
+            dimension = (math.ceil(dimension[0]/blockSize)+2,math.ceil(dimension[1]/blockSize)+2)
             self.__indexArray = np.array([None]*dimension[0]*dimension[1]).reshape(dimension).astype(DynamicNpy)
 
     def __eq__(self, o: object) -> bool:

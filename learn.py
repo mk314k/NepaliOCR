@@ -3,96 +3,105 @@ import cv2
 import numpy as np
 from keras import backend as K
 from keras.models import Model
-from keras.layers import Input, Conv2D, MaxPooling2D, Reshape, Bidirectional, LSTM, Dense, Lambda, Activation, BatchNormalization, Dropout, Add
+from keras.layers import Input, Reshape, Bidirectional, LSTM, Dense, Lambda, BatchNormalization
 from keras.optimizers import Adam
 from utility import unicodes
+from keras.applications import ResNet50V2
 
 def ctcLambdaFunc(args):
+    """AI is creating summary for ctcLambdaFunc
+
+    Args:
+        args ([type]): [description]
+
+    Returns:
+        function : [description]
+    """
     yPred, labels, inputLength, labelLength = args
     yPred = yPred[:,2:,:]
-    loss = K.ctc_batch_cost(labels,yPred,inputLength,labelLength)
-    return loss
-
-def resnet_layer(inputs, num_filters=16, kernel_size=3, strides=1, activation='relu', batch_normalization=True, conv_first=True, pad = 'same' ):
-    conv = Conv2D(num_filters,
-                  kernel_size=kernel_size,
-                  strides=strides,
-                  padding= pad,
-                  kernel_initializer='he_normal')
-
-    x = inputs
-    if conv_first:
-        x = conv(x)
-        if batch_normalization:
-            x = BatchNormalization()(x)
-        if activation is not None:
-            x = Activation(activation)(x)
-    else:
-        if batch_normalization:
-            x = BatchNormalization()(x)
-        if activation is not None:
-            x = Activation(activation)(x)
-        x = conv(x)
-    return x
-
-def res_block(inputs,num_filters=16,kernel_size=3,strides=1,padding = 'same',activation='relu',batch_normalization=True,conv_first=True,BN=True,A=True):
-    x = inputs
-    y = resnet_layer(inputs=x,num_filters=num_filters,strides=strides, pad = padding)
-    y = resnet_layer(inputs=y,num_filters=num_filters,activation=None, pad = padding)
-    x = resnet_layer(inputs=x,num_filters=num_filters,strides=strides,pad = padding,activation=None,batch_normalization=False)
-    x = Add([x, y])
-    if BN:
-        x = BatchNormalization()(x)
-    if A:
-        x = Activation('relu')(x)
-    return x
-
-def recognitionModel(training):
-    inputs = Input(name = 'inputX', shape=(32,128,1), dtype = 'uint8')
-    inner = res_block(inputs,64)
-    inner = res_block(inner,64)
-    inner = MaxPooling2D(pool_size = (2,2),name = 'MaxPoolName1')(inner)
-    inner = res_block(inner,128)
-    inner = res_block(inner,128)
-    inner = MaxPooling2D(pool_size = (2,2),name = 'MaxPoolName2')(inner)
-    inner = res_block(inner,256)
-    inner = res_block(inner,256)
-    inner = MaxPooling2D(pool_size = (1,2),strides = (2,2), name = 'MaxPoolName4')(inner)
-    inner = res_block(inner,512)
-    inner = res_block(inner,512)
-    inner = MaxPooling2D(pool_size = (1,2), strides = (2,2), name = 'MaxPoolName5')(inner)
-    inner = res_block(inner,512)
-    inner = Reshape(target_shape = (32,256), name = 'reshape')(inner)
-    blstm1 = Bidirectional(LSTM(256, return_sequences = True, kernel_initializer = 'he_normal'))(inner)
-    blstm1 = BatchNormalization()(blstm1)
-    blstm2 = Bidirectional(LSTM(256, return_sequences = True, kernel_initializer = 'he_normal'))(blstm1)
-    blstm2 = BatchNormalization()(blstm2)
-    yPred = Dense(len(unicodes)+1, kernel_initializer = 'he_normal', activation = 'softmax')(blstm2)
-
-    labels = Input(name='label', shape=[32], dtype='float32')
-    inputLength = Input(name='inputLen', shape=[1], dtype='int64')
-    labelLength = Input(name='labelLen', shape=[1], dtype='int64')
-
-    lossOut = Lambda(ctcLambdaFunc, output_shape=(1,), name='ctc')([yPred, labels, inputLength, labelLength])
-
-    if training:
-        return Model(inputs = [inputs, labels, inputLength, labelLength], outputs=[lossOut,yPred])
-    return Model(inputs=[inputs], outputs=yPred)
-
+    return K.ctc_batch_cost(labels,yPred,inputLength,labelLength)
 
 class CRNN():
-    def __init__(self) -> None:
-        self.__model = recognitionModel(training=True)
+    """AI is creating summary for CRNN
+    """
+    def __init__(self, xShape=(32,128,1)) -> None:
+        """AI is creating summary for __init__
 
-    def train(self,X,Y):
-        self.__model.compile()
-        self.__model.fit()
-        #TODO compile and fit model
+        Args:
+            xShape (tuple, optional): [description]. Defaults to (32,128,1).
+        """
+        self.__inputX = Input(name = 'inputX', shape=xShape, dtype = 'float32')
+        base_model = ResNet50V2(weights=None, input_tensor=self.__inputX, classes=256)
+        inner = Reshape(target_shape = (32,256), name = 'reshape')(base_model)
+        blstm1 = Bidirectional(LSTM(256, return_sequences = True, kernel_initializer = 'he_normal'))(inner)
+        blstm1 = BatchNormalization()(blstm1)
+        blstm2 = Bidirectional(LSTM(256, return_sequences = True, kernel_initializer = 'he_normal'))(blstm1)
+        blstm2 = BatchNormalization()(blstm2)
+        self.__yPred = Dense(len(unicodes)+1, kernel_initializer = 'he_normal', activation = 'softmax')(blstm2)
+        self.__labels = Input(name='label', shape=[xShape[0]], dtype='float32')
+        self.__inputLength = Input(name='inputLen', shape=[1], dtype='int64')
+        self.__labelLength = Input(name='labelLen', shape=[1], dtype='int64')
+        self.__lossOut = Lambda(ctcLambdaFunc, output_shape=(1,), name='ctc')([self.__yPred, self.__labels, self.__inputLength, self.__labelLength])
+        self.__trainingModelSet = False
+        self.__predictionModelSet = False
+
+    def train(self,X,Y,modelPath=None):
+        """AI is creating summary for train
+
+        Args:
+            X ([type]): [description]
+            Y ([type]): [description]
+        """
+        if not self.__trainingModelSet:
+            self.__trainableModel = Model(inputs = [self.__inputX, self.__labels, self.__inputLength, self.__labelLength], outputs=[self.__lossOut,self.__yPred])
+            if modelPath: self.__trainableModel.load_weights(modelPath)
+            self.__trainingModelSet = True
+        self.__trainableModel.compile(optimizer=Adam(learning_rate=0.0001,epsilon=1e-9),loss=ctcLambdaFunc,metrics=['accuracy'])
+        self.__trainableModel.fit(X,Y,batch_size=32,epochs=1000)
+        #TODO please choose batch_size, epochs and other parameters depending on hardawares
+        #TODO loss function look for CTC loss
+        #TODO print accuracies 
+
+    def loadWeights(self,modelPath:str):
+        """AI is creating summary for loadWeights
+
+        Args:
+            modelPath (str): filename including full path to store the model weight
+        """
+        self.__predictionModel = Model(inputs=[self.__inputX], outputs=self.__yPred)
+        self.__predictionModel.load_weights(modelPath,by_name=True)
+        self.__predictionModelSet = True
+
+    def predict(self,img:np.ndarray):
+        """predicts the model output for given binary image
+        Note: input image should be preprocessed and of single channel
+                output need to be post processed for generating label
+
+        Args:
+            img (ndarray): Binary image 
+        """
+        if not self.__predictionModelSet:
+            raise Exception("model weights need to be loaded before prediction")
+        else:
+            return self.__predictionModel.predict(img)
 
     def validate(self):
 
         pass
 
     def save_model(self,model_name:str):
+        """saves the model weights, should be called after training 
+
+        Args:
+            model_name (str): filename including full path to store the model weight
+        """
         self.__model.save(model_name+".h5")
 
+if __name__=='__main__':
+    #sample code to start training CRNN
+
+    xData = 0 #TODO make it numpy array of all the images after preprocess and converting into binary
+    yData = 0 #TODO make it numpy array of labels after preprocessing the devanagari texts
+    model = CRNN()
+    model.train(xData,yData)
+    model.save(model_name='') #TODO full file path for model name (matter of choice) import os for help
