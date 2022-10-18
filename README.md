@@ -11,8 +11,8 @@
 
 
 
+Detected Image Preview
 
-
-![](LINK HERE)
+<img src="gr9sctrain23_detected.jpg" width="400"/>
 
 
