@@ -1,78 +1,82 @@
+from typing import Iterator, List, Optional
 import numpy as np
 
-class DynamicNpy():
-    
-    def __init__(self,objectType:type,initlen=2,allowedObjType=None) -> None:
-        """AI is creating summary for __init__
 
-        Args:
-            objectType ([type]): [description]
-            initlen (int, optional): [description]. Defaults to 2.
-        """
-        self.__array = np.array([None]*initlen).astype(object)
-        self.__nullIndex = []
+class DynamicNpy:
+    def __init__(
+        self,
+        objectType: type,
+        initlen: int = 2,
+        allowedObjType: Optional[type] = None,
+    ) -> None:
+        self.__array = np.empty(max(1, initlen), dtype=object)
+        self.__array[:] = None
+        self.__nullIndex: List[int] = []
         self.__objType = objectType
-        self.__lastValueIndex =-1
+        self.__lastValueIndex = -1
         self.__allowedObjType = allowedObjType
 
-    def __getitem__(self,index:int):
-        """AI is creating summary for __getitem__
-
-        Args:
-            index ([type]): [description]
-
-        Returns:
-            [type]: [description]
-        """
-        if (index<0 or index>=self.size()):
-            raise Exception(f"Index out of bound. Array is size of {self.size()} while {index} is called")
+    def __getitem__(self, index: int):
+        if index < 0 or index >= self.size():
+            raise IndexError(
+                f"Index out of bounds: size is {self.size()} while {index} was requested"
+            )
         return self.__array[index]
 
-    def __setitem(self,index:int,value:object):
-        # if not isinstance(value,self.__objType):
-        #     if isinstance(value,self.__allowedObjType):
-        #         value=self.__objType(value)
-        #     else:
-        #         raise Exception("This array is not defined to store given value object type")
-
+    def __setitem(self, index: int, value: object) -> int:
         if index >= self.__array.size:
-            arr = np.array([None]*2*index).astype(self.__objType)
-            arr[0:self.__array.size] = self.__array
+            new_cap = max(2 * index, self.__array.size * 2, 2)
+            arr = np.empty(new_cap, dtype=object)
+            arr[:] = None
+            arr[: self.__array.size] = self.__array
             self.__array = arr
 
-        self.__array[index]=value
-        if index>self.__lastValueIndex:
-            self.__lastValueIndex=index
+        self.__array[index] = value
+        if index > self.__lastValueIndex:
+            self.__lastValueIndex = index
         return index
 
-    # def __setitem__(self,index,value):
-    #     _=self.__setitem(index,value)
+    def __setitem__(self, index: int, value: object) -> None:
+        if value is not None and not isinstance(value, self.__objType):
+            if self.__allowedObjType and isinstance(value, self.__allowedObjType):
+                value = self.__objType(value)
+            else:
+                raise TypeError(
+                    f"Expected {self.__objType.__name__}, got {type(value).__name__}"
+                )
+        self.__setitem(index, value)
 
-    def append(self,value):
-        if not isinstance(value,self.__objType):
-            raise Exception("ValueType Error")
-        index = self.__lastValueIndex + 1
+    def append(self, value: object) -> int:
+        if not isinstance(value, self.__objType):
+            if self.__allowedObjType and isinstance(value, self.__allowedObjType):
+                value = self.__objType(value)
+            else:
+                raise TypeError(
+                    f"ValueType Error: expected {self.__objType.__name__}, got {type(value).__name__}"
+                )
         if self.__nullIndex:
             index = self.__nullIndex.pop()
-        return self.__setitem(index,value)
+        else:
+            index = self.__lastValueIndex + 1
+        return self.__setitem(index, value)
 
-    def removeIndex(self,index):
-        if (index<0 or index>=self.size()):
-            raise Exception(f"Index out of bound. Array is size of {self.size()} while {index} is called")
-        self.__array[index]=None
-        self.__nullIndex.append(index)
-        #TODO
-        # if len(self.__nullIndex)>=self.size()//2:
-        #     arr = 
+    def removeIndex(self, index: int) -> None:
+        if index < 0 or index >= self.size():
+            raise IndexError(
+                f"Index out of bounds: size is {self.size()} while {index} was requested"
+            )
+        if self.__array[index] is not None:
+            self.__array[index] = None
+            self.__nullIndex.append(index)
 
-    def size(self):
-        return self.__lastValueIndex+1
+    def size(self) -> int:
+        return self.__lastValueIndex + 1
 
-    def __iter__(self):
-        for obj in self.__array:
-            if isinstance(obj,self.__objType):
+    def __iter__(self) -> Iterator[object]:
+        for i in range(self.size()):
+            obj = self.__array[i]
+            if isinstance(obj, self.__objType):
                 yield obj
 
     def __repr__(self) -> str:
-        return self.__array.__repr__()
-        pass
+        return repr([obj for obj in self])
