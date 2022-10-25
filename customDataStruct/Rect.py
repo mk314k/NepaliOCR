@@ -1,10 +1,20 @@
+"""
+Axis-aligned bounding box (`Rect`) for document layout regions.
+"""
 from __future__ import annotations
 import math
 from typing import List, Optional, Tuple, Union
+import numpy as np
 from customDataStruct.interfaces import Rectangle
 
 
 class Rect(Rectangle):
+    """
+    Bounding box defined by `(x1, y1)` (top-left in image coordinates) and
+    `(x2, y2)` (bottom-right), tagged with a layout region `type`
+    (`'text'`, `'Image'`, or `'Table'`).
+    """
+
     def __init__(
         self,
         x1: float,
@@ -45,6 +55,8 @@ class Rect(Rectangle):
         )
 
     def __getitem__(self, index: Union[str, int]):
+        # Note: in top-left image coordinates, y1 is the upper edge and y2 is the lower edge.
+        # Keys follow the original convention used across detector.py and datasetCreator.py.
         if index == "lowerLeft" or index == 0:
             return (self.__x1, self.__y1)
         if index == "lowerRight" or index == 3:
@@ -64,6 +76,7 @@ class Rect(Rectangle):
     def isOverlapping(
         self, rect: Rect, padding: Union[int, Tuple[int, int]] = 0
     ) -> bool:
+        """Check whether `self` and `rect` intersect when expanded by `padding`."""
         if isinstance(padding, (int, float)):
             pad_x, pad_y = int(padding), int(padding)
         else:
@@ -75,9 +88,28 @@ class Rect(Rectangle):
             or self.__y2 < rect.__y1 - 2 * pad_y
         )
 
+    def intersectionArea(self, rect: Rect) -> int:
+        """Compute overlapping area in pixels between `self` and `rect`."""
+        ix1 = max(self.__x1, rect.__x1)
+        iy1 = max(self.__y1, rect.__y1)
+        ix2 = min(self.__x2, rect.__x2)
+        iy2 = min(self.__y2, rect.__y2)
+        if ix2 <= ix1 or iy2 <= iy1:
+            return 0
+        return (ix2 - ix1) * (iy2 - iy1)
+
+    def iou(self, rect: Rect) -> float:
+        """Intersection-over-Union (IoU) in `[0.0, 1.0]`."""
+        inter = self.intersectionArea(rect)
+        if inter == 0:
+            return 0.0
+        union = self.area() + rect.area() - inter
+        return inter / union if union > 0 else 0.0
+
     def update(
         self, rect: Rect, padding: int = 0, paddedUpdate: bool = True
     ) -> None:
+        """Expand `self` in-place to enclose `rect` (propagating `'Image'` type if present)."""
         if not paddedUpdate:
             padding = 0
         self.__x1 = min(self.__x1, rect.__x1) - padding
@@ -90,12 +122,23 @@ class Rect(Rectangle):
     def overlapUpdate(
         self, rect: Rect, padding: Union[int, Tuple[int, int]] = 0
     ) -> bool:
+        """If `rect` overlaps `self`, merge `rect` into `self` and return True."""
         result = self.isOverlapping(rect, padding)
         if result:
             self.update(rect)
         return result
 
+    def getImage(self, img: np.ndarray) -> np.ndarray:
+        """Crop the image subarray `[y1:y2, x1:x2]` clamped to `img` bounds."""
+        h, w = img.shape[:2]
+        x1 = max(0, min(w, self.__x1))
+        y1 = max(0, min(h, self.__y1))
+        x2 = max(x1, min(w, self.__x2))
+        y2 = max(y1, min(h, self.__y2))
+        return img[y1:y2, x1:x2]
+
     def getblocks(self, blocksize: int) -> List[Tuple[int, int]]:
+        """Return `(row_block, col_block)` spatial grid cells covered by this rectangle."""
         x1 = max(0, self.__x1 // blocksize)
         y1 = max(0, self.__y1 // blocksize)
         x2 = max(x1 + 1, math.ceil(self.__x2 / blocksize))
