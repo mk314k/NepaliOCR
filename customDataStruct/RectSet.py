@@ -1,3 +1,6 @@
+"""
+Spatial-grid container (`RectSet`) for incrementally merging overlapping bounding boxes.
+"""
 from __future__ import annotations
 import math
 from typing import Iterator, List, Optional, Tuple, Union
@@ -8,6 +11,15 @@ from customDataStruct.Rect import Rect
 
 
 class RectSet:
+    """
+    Collection of `Rect` regions partitioned into `blockSize x blockSize` grid cells.
+
+    When a non-table `Rect` is added in `blockMode`, only candidate rectangles sharing
+    at least one spatial block are checked for overlap. If an overlap occurs, the two
+    boxes are merged into their union and grid checks repeat until no further overlaps
+    exist.
+    """
+
     def __init__(
         self,
         dimension: Union[int, Tuple[int, int]],
@@ -34,9 +46,11 @@ class RectSet:
         self, blocks: List[Tuple[int, int]]
     ) -> List[Tuple[int, int]]:
         max_r, max_c = self.__indexArray.shape
-        return [
-            (r, c) for r, c in blocks if 0 <= r < max_r and 0 <= c < max_c
-        ]
+        valid = []
+        for r, c in blocks:
+            if 0 <= r < max_r and 0 <= c < max_c:
+                valid.append((r, c))
+        return valid
 
     def __eq__(self, o: object) -> bool:
         if not isinstance(o, RectSet):
@@ -46,6 +60,7 @@ class RectSet:
     def addRect(
         self, rect: Rect, padding: Union[int, Tuple[int, int]] = 0
     ) -> None:
+        """Insert `rect`, merging transitive overlaps with existing non-table regions."""
         def updateRect(
             blocks: List[Tuple[int, int]]
         ) -> List[Tuple[int, int]]:
@@ -71,6 +86,7 @@ class RectSet:
                                 existing.getblocks(self.__blocksize)
                             )
                             self.__image.removeIndex(idx_val)
+                            # Remove stale references to `idx_val` across all blocks it spanned
                             for ob in old_blocks:
                                 ob_cell = self.__indexArray[ob]
                                 if ob_cell is not None:
@@ -93,6 +109,36 @@ class RectSet:
                 if self.__indexArray[block] is None:
                     self.__indexArray[block] = DynamicNpy(Num)
                 self.__indexArray[block].append(index)
+        else:
+            if rect.type != "Table":
+                merged = True
+                while merged:
+                    merged = False
+                    for idx_val in range(self.__image.size()):
+                        existing = self.__image[idx_val]
+                        if (
+                            existing is not None
+                            and existing.type != "Table"
+                            and rect.overlapUpdate(existing, padding)
+                        ):
+                            self.__image.removeIndex(idx_val)
+                            merged = True
+                            break
+            self.__image.append(rect)
+
+    def readingOrder(self, lineTolerance: int = 18) -> List[Rect]:
+        """Sort regions top-to-bottom by line band, and left-to-right within each line."""
+        rects = list(iter(self))
+        return sorted(
+            rects,
+            key=lambda r: (
+                r["lowerLeft"][1] // max(1, lineTolerance),
+                r["lowerLeft"][0],
+            ),
+        )
+
+    def __len__(self) -> int:
+        return len(self.__image)
 
     def __iter__(self) -> Iterator[Rect]:
         yield from self.__image
