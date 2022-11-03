@@ -202,3 +202,51 @@ def preeti2Uni(text: str) -> str:
     return "\n".join(converted_lines)
 
 
+recognizableCharacters: List[str] = [
+    "A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L", "M",
+    "N", "O", "P", "Q", "R", "S", "T", "U", "V", "W", "X", "Y", "Z",
+    "a", "b", "c", "d", "e", "f", "g", "h", "i", "j", "k", "l", "m",
+    "n", "o", "p", "q", "r", "s", "t", "u", "v", "w", "x", "y", "z",
+    "0", "1", "2", "3", "4", "5", "6", "7", "8", "9",
+    "(", ")", ".", ",", "-", "?",
+    "ा", "ि", "ी", "े", "ै", "ो", "ौ", "ु", "ू", "ृ", "ं", "ँ", "ः", "्", "।",
+    "अ", "आ", "उ", "ऊ", "ए", "ऐ", "इ", "ई", "ओ", "औ", "ऋ", "ॐ",
+    "क", "ख", "ग", "घ", "ङ", "च", "छ", "ज", "झ", "ञ",
+    "ट", "ठ", "ड", "ढ", "ण", "त", "थ", "द", "ध", "न",
+    "प", "फ", "ब", "भ", "म", "य", "र", "ल", "व", "श",
+    "ष", "स", "ह",
+    "०", "१", "२", "३", "४", "५", "६", "७", "८", "९", "॰", " ",
+]
+unicodes: List[str] = recognizableCharacters
+
+char_to_idx: Dict[str, int] = {ch: idx for idx, ch in enumerate(unicodes)}
+idx_to_char: Dict[int, str] = {idx: ch for idx, ch in enumerate(unicodes)}
+CTC_BLANK_INDEX: int = len(unicodes)
+
+
+def encode_text(text: str) -> List[int]:
+    """Map a Unicode string to vocabulary indices (skipping unknown characters)."""
+    return [char_to_idx[ch] for ch in text if ch in char_to_idx]
+
+
+def decode_indices(indices: Sequence[int]) -> str:
+    """Convert non-blank vocabulary indices back into a Unicode string."""
+    return "".join(
+        idx_to_char[i]
+        for i in indices
+        if i in idx_to_char and i != CTC_BLANK_INDEX
+    )
+
+
+nepaliKeyBoard: Dict[str, str] = {
+    "a": "ा", "i": "ि", "I": "ी", "e": "े", "E": "ै", "u": "ु", "U": "ू", "R": "ृ",
+    "A": "अ", "F": "आ", "W": "इ", "o": "उ", "O": "ए", "L": "ऋ", "P": "ॐ",
+    "k": "क", "K": "ख", "g": "ग", "G": "घ", "M": "ङ",
+    "c": "च", "C": "छ", "j": "ज", "J": "झ", "Y": "ञ",
+    "T": "ट", "Q": "ठ", "D": "ड", "V": "ढ", "N": "ण",
+    "t": "त", "q": "थ", "d": "द", "v": "ध", "n": "न",
+    "p": "प", "f": "फ", "b": "ब", "B": "भ", "m": "म",
+    "y": "य", "r": "र", "l": "ल", "w": "व", "S": "श", "H": "ष", "s": "स", "h": "ह",
+    "0": "०", "1": "१", "2": "२", "3": "३", "4": "४", "5": "५", "6": "६", "7": "७", "8": "८", "9": "९",
+    ",": "्", ".": "।", "z": "ः", "Z": "्र", "x": "ं", "X": "ँ",
+}
