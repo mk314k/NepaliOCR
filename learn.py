@@ -1,107 +1,119 @@
-import tensorflow as tf2
-import cv2
+"""
+PyTorch CRNN + CTC sequence recognition model for Devanagari and English word crops.
+"""
+import os
+from typing import List, Optional, Sequence, Tuple, Union
 import numpy as np
-from keras import backend as K
-from keras.models import Model
-from keras.layers import Input, Reshape, Bidirectional, LSTM, Dense, Lambda, BatchNormalization
-from keras.optimizers import Adam
-from utility import unicodes
-from keras.applications import ResNet50V2
+import torch
+import torch.nn as nn
+import torch.nn.functional as F
 
-def ctcLambdaFunc(args):
-    """AI is creating summary for ctcLambdaFunc
+from utility import CTC_BLANK_INDEX, encode_text, unicodes
 
-    Args:
-        args ([type]): [description]
 
-    Returns:
-        function : [description]
+class _ResidualConvBlock(nn.Module):
+    """Two-layer `3x3` residual block with batch normalization (`momentum=0.2`)."""
+
+    def __init__(self, in_ch: int, out_ch: int):
+        super().__init__()
+        self.conv1 = nn.Conv2d(in_ch, out_ch, kernel_size=3, padding=1, bias=False)
+        self.bn1 = nn.BatchNorm2d(out_ch, momentum=0.2)
+        self.conv2 = nn.Conv2d(out_ch, out_ch, kernel_size=3, padding=1, bias=False)
+        self.bn2 = nn.BatchNorm2d(out_ch, momentum=0.2)
+        self.shortcut = (
+            nn.Sequential(
+                nn.Conv2d(in_ch, out_ch, kernel_size=1, bias=False),
+                nn.BatchNorm2d(out_ch, momentum=0.2),
+            )
+            if in_ch != out_ch
+            else nn.Identity()
+        )
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        out = F.relu(self.bn1(self.conv1(x)), inplace=True)
+        out = self.bn2(self.conv2(out))
+        return F.relu(out + self.shortcut(x), inplace=True)
+
+
+class _DevanagariCRNNNet(nn.Module):
     """
-    yPred, labels, inputLength, labelLength = args
-    yPred = yPred[:,2:,:]
-    return K.ctc_batch_cost(labels,yPred,inputLength,labelLength)
+    Residual CNN + BiLSTM network mapping `(B, 1, 32, W)` to `(B, W // 4, num_classes)`.
 
-class CRNN():
-    """AI is creating summary for CRNN
+    Unlike Latin CRNNs that pool height all the way to `H = 1`, this backbone stops
+    vertical pooling at `H = 4` (`32 -> 16 -> 8 -> 4`) and flattens `C * H = 512`
+    features per horizontal step before a linear projection to `256`. Keeping 4
+    vertical bands preserves spatial separation between upper matras (`े`, `ै`, `ं`),
+    the middle consonant body, and lower subscript matras (`ु`, `ू`, `ृ`, `्`).
     """
-    def __init__(self, xShape=(32,128,1)) -> None:
-        """AI is creating summary for __init__
 
-        Args:
-            xShape (tuple, optional): [description]. Defaults to (32,128,1).
-        """
-        self.__inputX = Input(name = 'inputX', shape=xShape, dtype = 'float32')
-        base_model = ResNet50V2(weights=None, input_tensor=self.__inputX, classes=256)
-        inner = Reshape(target_shape = (32,256), name = 'reshape')(base_model)
-        blstm1 = Bidirectional(LSTM(256, return_sequences = True, kernel_initializer = 'he_normal'))(inner)
-        blstm1 = BatchNormalization()(blstm1)
-        blstm2 = Bidirectional(LSTM(256, return_sequences = True, kernel_initializer = 'he_normal'))(blstm1)
-        blstm2 = BatchNormalization()(blstm2)
-        self.__yPred = Dense(len(unicodes)+1, kernel_initializer = 'he_normal', activation = 'softmax')(blstm2)
-        self.__labels = Input(name='label', shape=[xShape[0]], dtype='float32')
-        self.__inputLength = Input(name='inputLen', shape=[1], dtype='int64')
-        self.__labelLength = Input(name='labelLen', shape=[1], dtype='int64')
-        self.__lossOut = Lambda(ctcLambdaFunc, output_shape=(1,), name='ctc')([self.__yPred, self.__labels, self.__inputLength, self.__labelLength])
-        self.__trainingModelSet = False
-        self.__predictionModelSet = False
+    def __init__(self, num_classes: int, in_channels: int = 1):
+        super().__init__()
+        # (B, 1, 32, W) -> (B, 64, 16, W/2)
+        self.stem = nn.Sequential(
+            nn.Conv2d(in_channels, 64, kernel_size=3, padding=1, bias=False),
+            nn.BatchNorm2d(64, momentum=0.2),
+            nn.ReLU(inplace=True),
+            nn.MaxPool2d(kernel_size=(2, 2), stride=(2, 2)),
+        )
+        # (B, 64, 16, W/2) -> (B, 128, 8, W/4)
+        self.stage2 = nn.Sequential(
+            _ResidualConvBlock(64, 128),
+            nn.MaxPool2d(kernel_size=(2, 2), stride=(2, 2)),
+        )
+        # (B, 128, 8, W/4) -> (B, 128, 4, W/4)
+        self.stage3 = nn.Sequential(
+            _ResidualConvBlock(128, 128),
+            nn.MaxPool2d(kernel_size=(2, 1), stride=(2, 1)),
+            _ResidualConvBlock(128, 128),
+        )
+        self.vertical_proj = nn.Sequential(
+            nn.Linear(128 * 4, 256),
+            nn.LayerNorm(256),
+            nn.ReLU(inplace=True),
+        )
 
-    def train(self,X,Y,modelPath=None):
-        """AI is creating summary for train
+        self.blstm1 = nn.LSTM(
+            input_size=256,
+            hidden_size=256,
+            bidirectional=True,
+            batch_first=True,
+        )
+        self.ln1 = nn.LayerNorm(512)
+        self.blstm2 = nn.LSTM(
+            input_size=512,
+            hidden_size=256,
+            bidirectional=True,
+            batch_first=True,
+        )
+        self.ln2 = nn.LayerNorm(512)
+        self.fc = nn.Linear(512, num_classes)
 
-        Args:
-            X ([type]): [description]
-            Y ([type]): [description]
-        """
-        if not self.__trainingModelSet:
-            self.__trainableModel = Model(inputs = [self.__inputX, self.__labels, self.__inputLength, self.__labelLength], outputs=[self.__lossOut,self.__yPred])
-            if modelPath: self.__trainableModel.load_weights(modelPath)
-            self.__trainingModelSet = True
-        self.__trainableModel.compile(optimizer=Adam(learning_rate=0.0001,epsilon=1e-9),loss=ctcLambdaFunc,metrics=['accuracy'])
-        self.__trainableModel.fit(X,Y,batch_size=32,epochs=1000)
-        #TODO please choose batch_size, epochs and other parameters depending on hardawares
-        #TODO loss function look for CTC loss
-        #TODO print accuracies 
+        # Initialize blank logit bias slightly negative so early CTC steps do not
+        # collapse to all-blank predictions.
+        nn.init.constant_(self.fc.bias, 0.0)
+        with torch.no_grad():
+            self.fc.bias[num_classes - 1] = -2.0
 
-    def loadWeights(self,modelPath:str):
-        """AI is creating summary for loadWeights
+    def forward_logits(self, x: torch.Tensor) -> torch.Tensor:
+        if not x.is_contiguous() or x.stride(1) != x.size(2) * x.size(3):
+            x = x.clone(memory_format=torch.contiguous_format)
+        feat = self.stem(x)
+        feat = self.stage2(feat)
+        feat = self.stage3(feat)
+        B, C, H, T = feat.shape
+        seq = (
+            feat.permute(0, 3, 1, 2)
+            .clone(memory_format=torch.contiguous_format)
+            .view(B, T, C * H)
+        )
+        seq = self.vertical_proj(seq)
+        out1, _ = self.blstm1(seq)
+        out1 = self.ln1(out1)
+        out2, _ = self.blstm2(out1)
+        out2 = self.ln2(out2)
+        return self.fc(out2)
 
-        Args:
-            modelPath (str): filename including full path to store the model weight
-        """
-        self.__predictionModel = Model(inputs=[self.__inputX], outputs=self.__yPred)
-        self.__predictionModel.load_weights(modelPath,by_name=True)
-        self.__predictionModelSet = True
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        return F.softmax(self.forward_logits(x), dim=-1)
 
-    def predict(self,img:np.ndarray):
-        """predicts the model output for given binary image
-        Note: input image should be preprocessed and of single channel
-                output need to be post processed for generating label
 
-        Args:
-            img (ndarray): Binary image 
-        """
-        if not self.__predictionModelSet:
-            raise Exception("model weights need to be loaded before prediction")
-        else:
-            return self.__predictionModel.predict(img)
-
-    def validate(self):
-
-        pass
-
-    def save_model(self,model_name:str):
-        """saves the model weights, should be called after training 
-
-        Args:
-            model_name (str): filename including full path to store the model weight
-        """
-        self.__model.save(model_name+".h5")
-
-if __name__=='__main__':
-    #sample code to start training CRNN
-
-    xData = 0 #TODO make it numpy array of all the images after preprocess and converting into binary
-    yData = 0 #TODO make it numpy array of labels after preprocessing the devanagari texts
-    model = CRNN()
-    model.train(xData,yData)
-    model.save(model_name='') #TODO full file path for model name (matter of choice) import os for help
