@@ -117,3 +117,216 @@ class _DevanagariCRNNNet(nn.Module):
         return F.softmax(self.forward_logits(x), dim=-1)
 
 
+class CRNN:
+    """Wrapper around `_DevanagariCRNNNet` providing CTC training, inference, and checkpoint I/O."""
+
+    def __init__(self, xShape: Tuple[int, int, int] = (32, 192, 1)) -> None:
+        self.__xShape = xShape
+        self.__numClasses = len(unicodes) + 1
+        self.__device = torch.device(
+            "cuda"
+            if torch.cuda.is_available()
+            else (
+                "mps"
+                if hasattr(torch.backends, "mps")
+                and torch.backends.mps.is_available()
+                else "cpu"
+            )
+        )
+        self.__net = _DevanagariCRNNNet(
+            num_classes=self.__numClasses, in_channels=xShape[2]
+        ).to(self.__device)
+        self.__predictionModelSet = True
+
+    @property
+    def device(self) -> torch.device:
+        return self.__device
+
+    def train(
+        self,
+        X: np.ndarray,
+        Y: Union[Sequence[str], Sequence[Sequence[int]], np.ndarray],
+        modelPath: Optional[str] = None,
+        epochs: int = 25,
+        batch_size: int = 128,
+        learning_rate: float = 2.5e-3,
+    ) -> List[float]:
+        """Train the CRNN with `nn.CTCLoss` and return per-epoch mean loss history."""
+        if modelPath and os.path.isfile(modelPath):
+            self.loadWeights(modelPath)
+
+        self.__net.train()
+        optimizer = torch.optim.AdamW(
+            self.__net.parameters(), lr=learning_rate, weight_decay=1e-4
+        )
+        ctc_loss_fn = nn.CTCLoss(
+            blank=CTC_BLANK_INDEX, reduction="mean", zero_infinity=True
+        )
+
+        x_arr = np.asarray(X, dtype=np.float32)
+        if x_arr.ndim == 4 and x_arr.shape[-1] == 1:
+            x_arr = x_arr[..., 0]
+        x_tensor = (
+            torch.from_numpy(np.ascontiguousarray(x_arr))
+            .unsqueeze(1)
+            .to(self.__device)
+            .clone(memory_format=torch.contiguous_format)
+        )
+
+        encoded_targets: List[List[int]] = []
+        for item in Y:
+            if isinstance(item, str):
+                encoded_targets.append(encode_text(item))
+            else:
+                encoded_targets.append([int(v) for v in item if int(v) >= 0])
+
+        n_samples = len(x_tensor)
+        loss_history: List[float] = []
+        rng = np.random.default_rng(42)
+        scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
+            optimizer, T_max=max(1, epochs), eta_min=learning_rate * 0.05
+        )
+
+        for _epoch in range(epochs):
+            perm = rng.permutation(n_samples)
+            epoch_loss = 0.0
+            steps = 0
+            for start in range(0, n_samples, batch_size):
+                batch_idx = perm[start : start + batch_size]
+                xb = x_tensor[batch_idx]
+                tb_list = [encoded_targets[i] for i in batch_idx]
+                bsz = len(xb)
+
+                if bsz > 8 and rng.random() < 0.5:
+                    shift = int(rng.integers(-2, 3))
+                    if shift != 0:
+                        xb = torch.roll(xb, shifts=shift, dims=-1)
+
+                flat_targets = [idx for seq in tb_list for idx in seq]
+                target_lengths = torch.tensor(
+                    [len(seq) for seq in tb_list],
+                    dtype=torch.long,
+                    device=self.__device,
+                )
+                targets_t = torch.tensor(
+                    flat_targets, dtype=torch.long, device=self.__device
+                )
+
+                optimizer.zero_grad()
+                logits = self.__net.forward_logits(xb)
+                input_lengths = torch.full(
+                    (bsz,),
+                    logits.size(1),
+                    dtype=torch.long,
+                    device=self.__device,
+                )
+
+                # PyTorch's MPS backend does not natively implement `aten::_ctc_loss`,
+                # so compute the CTC loss reduction on CPU and pass gradients back to MPS.
+                if self.__device.type == "mps":
+                    logits_cpu = logits.detach().cpu().requires_grad_(True)
+                    log_probs = (
+                        F.log_softmax(logits_cpu, dim=-1)
+                        .permute(1, 0, 2)
+                        .contiguous()
+                    )
+                    loss = ctc_loss_fn(
+                        log_probs,
+                        targets_t.cpu(),
+                        input_lengths.cpu(),
+                        target_lengths.cpu(),
+                    )
+                    loss.backward()
+                    logits.backward(
+                        logits_cpu.grad.contiguous().to(self.__device)
+                    )
+                else:
+                    log_probs = (
+                        F.log_softmax(logits, dim=-1)
+                        .permute(1, 0, 2)
+                        .contiguous()
+                    )
+                    loss = ctc_loss_fn(
+                        log_probs, targets_t, input_lengths, target_lengths
+                    )
+                    loss.backward()
+
+                torch.nn.utils.clip_grad_norm_(
+                    self.__net.parameters(), max_norm=5.0
+                )
+                optimizer.step()
+                epoch_loss += float(loss.item())
+                steps += 1
+
+            scheduler.step()
+            loss_history.append(epoch_loss / max(1, steps))
+
+        self.__net.eval()
+        return loss_history
+
+    def loadWeights(self, modelPath: str) -> None:
+        """Load state dict from `modelPath` onto the active device."""
+        if not modelPath or not os.path.isfile(modelPath):
+            return
+        state = torch.load(modelPath, map_location=self.__device)
+        self.__net.load_state_dict(state, strict=False)
+        self.__net.eval()
+        self.__predictionModelSet = True
+
+    def predict(self, img: np.ndarray) -> np.ndarray:
+        """
+        Run forward pass on preprocessed grayscale image tensor `img`
+        (`(N, H, W, 1)` or `(H, W)`) and return framewise softmax probabilities.
+        """
+        if not self.__predictionModelSet:
+            raise RuntimeError("Model weights need to be loaded before prediction")
+        x_arr = np.asarray(img, dtype=np.float32)
+        if x_arr.ndim == 2:
+            x_arr = x_arr[None, :, :]
+        elif x_arr.ndim == 3 and x_arr.shape[-1] == 1:
+            x_arr = x_arr[None, :, :, 0]
+        elif x_arr.ndim == 4 and x_arr.shape[-1] == 1:
+            x_arr = x_arr[..., 0]
+
+        self.__net.eval()
+        n_total = len(x_arr)
+        chunks = []
+        with torch.no_grad():
+            for start in range(0, n_total, 256):
+                part = np.ascontiguousarray(x_arr[start : start + 256])
+                xb = (
+                    torch.from_numpy(part)
+                    .unsqueeze(1)
+                    .to(self.__device)
+                    .clone(memory_format=torch.contiguous_format)
+                )
+                probs = self.__net(xb)
+                chunks.append(probs.cpu().numpy())
+        return np.concatenate(chunks, axis=0)
+
+    def validate(
+        self, X_val: np.ndarray, Y_val: Sequence[str]
+    ) -> Tuple[float, List[str]]:
+        """Evaluate exact-match word accuracy on `(X_val, Y_val)`."""
+        from recognizer import postProcess
+
+        preds = self.predict(X_val)
+        decoded = [postProcess(preds[i : i + 1]) for i in range(len(X_val))]
+        matches = sum(1 for p, t in zip(decoded, Y_val) if p == t)
+        acc = matches / max(1, len(Y_val))
+        return acc, decoded
+
+    def save_model(self, model_name: str) -> str:
+        """Save model weights to `<model_name>.pt`."""
+        out_path = (
+            model_name
+            if model_name.endswith((".pt", ".pth"))
+            else model_name + ".pt"
+        )
+        cpu_state = {
+            k: v.detach().cpu() for k, v in self.__net.state_dict().items()
+        }
+        torch.save(cpu_state, out_path)
+        return out_path
+
+    save = save_model
