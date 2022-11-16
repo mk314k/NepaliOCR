@@ -16,10 +16,10 @@ from tkinter import (
 import cv2
 import numpy as np
 
-from customDataStruct.pdfClass import PDFReader
-from detector import doubleContourDetect
-from docxParse import parseDocx
-from utility import nepaliKeyBoard, preeti2Uni, showImage
+from nepali_ocr.io_pdf import PDFReader
+from nepali_ocr.detector import doubleContourDetect
+from tools.docx_parser import parseDocx
+from nepali_ocr.utils import nepaliKeyBoard, preeti2Uni, showImage
 
 globalData = {}
 

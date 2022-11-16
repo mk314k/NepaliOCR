@@ -8,7 +8,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-from utility import CTC_BLANK_INDEX, encode_text, unicodes
+from nepali_ocr.utils import CTC_BLANK_INDEX, encode_text, unicodes
 
 
 class _ResidualConvBlock(nn.Module):
@@ -308,7 +308,7 @@ class CRNN:
         self, X_val: np.ndarray, Y_val: Sequence[str]
     ) -> Tuple[float, List[str]]:
         """Evaluate exact-match word accuracy on `(X_val, Y_val)`."""
-        from recognizer import postProcess
+        from nepali_ocr.recognizer import postProcess
 
         preds = self.predict(X_val)
         decoded = [postProcess(preds[i : i + 1]) for i in range(len(X_val))]

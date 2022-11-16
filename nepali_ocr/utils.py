@@ -6,7 +6,7 @@ import os
 from typing import Dict, List, Sequence, Tuple
 import cv2
 import numpy as np
-from customDataStruct.Rect import Rect
+from nepali_ocr.spatial.rect import Rect
 
 # Rectangle corner indices
 lowerLeft = 0
@@ -24,7 +24,8 @@ COLORREDUCER = 96
 IMGMAXSIZE = 1024
 
 CRNNModelPath = os.path.join(
-    os.path.dirname(os.path.abspath(__file__)), "crnn_nepali_ocr.pt"
+    os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+    "crnn_nepali_ocr.pt",
 )
 
 L1Distance = lambda p1p2: abs(p1p2[1] - p1p2[0])

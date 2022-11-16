@@ -5,7 +5,7 @@ from __future__ import annotations
 import math
 from typing import List, Optional, Tuple, Union
 import numpy as np
-from customDataStruct.interfaces import Rectangle
+from nepali_ocr.spatial.interfaces import Rectangle
 
 
 class Rect(Rectangle):

@@ -4,11 +4,11 @@ import unittest
 import cv2
 import numpy as np
 
-from customDataStruct import DynamicNpy, Num, Point, Rect, RectSet
-from detector import annotateDetectedRegions, doubleContourDetect
-from learn import CRNN
-from recognizer import postProcess, preProcess
-from utility import decode_indices, encode_text, preeti2Uni
+from nepali_ocr.spatial import DynamicNpy, Num, Point, Rect, RectSet
+from nepali_ocr.detector import annotateDetectedRegions, doubleContourDetect
+from nepali_ocr.model import CRNN
+from nepali_ocr.recognizer import postProcess, preProcess
+from nepali_ocr.utils import decode_indices, encode_text, preeti2Uni
 
 
 class TestNepaliOCR(unittest.TestCase):
@@ -79,8 +79,8 @@ class TestNepaliOCR(unittest.TestCase):
         annotated = annotateDetectedRegions(page, rects)
         self.assertEqual(annotated.shape, page.shape)
 
-        if os.path.isfile("gr9sctrain23_detected.jpg"):
-            real_img = cv2.imread("gr9sctrain23_detected.jpg")
+        if os.path.isfile("assets/gr9sctrain23_detected.jpg"):
+            real_img = cv2.imread("assets/gr9sctrain23_detected.jpg")
             self.assertIsNotNone(real_img)
             real_rects = doubleContourDetect(real_img, iteration=2)
             self.assertGreater(len(real_rects), 10)

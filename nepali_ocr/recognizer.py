@@ -6,8 +6,8 @@ from typing import List, Optional, Tuple
 import cv2
 import numpy as np
 
-from learn import CRNN
-from utility import CTC_BLANK_INDEX, CRNNModelPath, idx_to_char
+from nepali_ocr.model import CRNN
+from nepali_ocr.utils import CTC_BLANK_INDEX, CRNNModelPath, idx_to_char
 
 _CACHED_MODEL: Optional[CRNN] = None
 _CACHED_MODEL_PATH: Optional[str] = None

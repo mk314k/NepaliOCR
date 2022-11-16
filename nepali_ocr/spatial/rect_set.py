@@ -5,9 +5,9 @@ from __future__ import annotations
 import math
 from typing import Iterator, List, Optional, Tuple, Union
 import numpy as np
-from customDataStruct.DynamicNP import DynamicNpy
-from customDataStruct.num import Num
-from customDataStruct.Rect import Rect
+from nepali_ocr.spatial.dynamic_array import DynamicNpy
+from nepali_ocr.spatial.num import Num
+from nepali_ocr.spatial.rect import Rect
 
 
 class RectSet:

@@ -7,7 +7,7 @@ from typing import List, Optional, Tuple, Union
 import cv2
 import numpy as np
 from PIL import Image
-from customDataStruct.Rect import Rect
+from nepali_ocr.spatial.rect import Rect
 
 try:
     from fpdf import FPDF

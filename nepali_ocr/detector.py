@@ -5,9 +5,9 @@ from typing import Callable, List, Optional, Sequence, Tuple
 import cv2
 import numpy as np
 
-from customDataStruct.Rect import Rect
-from customDataStruct.RectSet import RectSet
-from utility import (
+from nepali_ocr.spatial.rect import Rect
+from nepali_ocr.spatial.rect_set import RectSet
+from nepali_ocr.utils import (
     AREAFACTOR,
     DETECTREGION,
     L1DistanceFrac,
@@ -277,7 +277,7 @@ def annotateDetectedRegions(img: np.ndarray, rects: RectSet) -> np.ndarray:
 
 
 if __name__ == "__main__":
-    sample_path = "gr9sctrain23_detected.jpg"
+    sample_path = "assets/gr9sctrain23_detected.jpg"
     img = cv2.imread(sample_path)
     if img is not None:
         rects = doubleContourDetect(img)

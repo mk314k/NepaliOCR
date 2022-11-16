@@ -6,9 +6,9 @@ from typing import Dict, List
 import cv2
 import numpy as np
 
-from customDataStruct.pdfClass import PDFReader, PDFWriter
-from detector import detect, doubleContourDetect
-from recognizer import recognize
+from nepali_ocr.io_pdf import PDFReader, PDFWriter
+from nepali_ocr.detector import detect, doubleContourDetect
+from nepali_ocr.recognizer import recognize
 
 
 def processImagePage(
