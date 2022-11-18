@@ -23,29 +23,33 @@ except ImportError:
 class PDFReader:
     """Read a PDF file, extract embedded text, or render pages to JPEG images."""
 
-    def __init__(self, fileName: str, mode: str = "r") -> None:
-        self.__fileName = fileName
+    def __init__(self, file_name: str, mode: str = "r") -> None:
+        self.__file_name = file_name
         self.__mode = mode
-        self.__pdf = PdfReader(fileName) if PdfReader is not None else None
+        self.__pdf = PdfReader(file_name) if PdfReader is not None else None
 
-    def totalPages(self) -> int:
+    def total_pages(self) -> int:
         if self.__pdf is None:
             return 0
         if hasattr(self.__pdf, "pages"):
             return len(self.__pdf.pages)
         return self.__pdf.getNumPages()
 
-    def toImage(self, outExt: str = "jpg", resolution: int = 300) -> List[str]:
-        if outExt == "jpg":
-            return self.toJPG(resolution)
-        raise ValueError(f"Unsupported output extension: {outExt}")
+    totalPages = total_pages
 
-    def toJPG(self, resolution: int = 300) -> List[str]:
-        """Render all PDF pages to `<fileName>Img/img1.jpg ... imgN.jpg` via Ghostscript."""
-        imgDir = self.__fileName[:-4] + "Img"
-        os.makedirs(imgDir, exist_ok=True)
-        fileNamePrefix = os.path.join(imgDir, "img")
-        n_pages = self.totalPages()
+    def to_image(self, out_ext: str = "jpg", resolution: int = 300) -> List[str]:
+        if out_ext == "jpg":
+            return self.to_jpg(resolution)
+        raise ValueError(f"Unsupported output extension: {out_ext}")
+
+    toImage = to_image
+
+    def to_jpg(self, resolution: int = 300) -> List[str]:
+        """Render all PDF pages to `<file_name>Img/img1.jpg ... imgN.jpg` via Ghostscript."""
+        img_dir = self.__file_name[:-4] + "Img"
+        os.makedirs(img_dir, exist_ok=True)
+        file_name_prefix = os.path.join(img_dir, "img")
+        n_pages = self.total_pages()
 
         try:
             import ghostscript
@@ -57,29 +61,31 @@ class PDFReader:
                 "-dSAFER",
                 "-sDEVICE=jpeg",
                 f"-r{resolution}",
-                "-sOutputFile=" + fileNamePrefix + "%d.jpg",
-                self.__fileName,
+                "-sOutputFile=" + file_name_prefix + "%d.jpg",
+                self.__file_name,
             ]
             encoding = locale.getpreferredencoding()
             encoded_args = [a.encode(encoding) for a in args]
             ghostscript.Ghostscript(*encoded_args)
         except Exception:
             for idx in range(1, n_pages + 1):
-                out_path = f"{fileNamePrefix}{idx}.jpg"
+                out_path = f"{file_name_prefix}{idx}.jpg"
                 if not os.path.exists(out_path):
                     blank = np.full((1000, 750, 3), 255, dtype=np.uint8)
                     cv2.imwrite(out_path, blank)
 
-        return [f"{fileNamePrefix}{i}.jpg" for i in range(1, n_pages + 1)]
+        return [f"{file_name_prefix}{i}.jpg" for i in range(1, n_pages + 1)]
 
-    def extractText(
+    toJPG = to_jpg
+
+    def extract_text(
         self, pages: Union[int, List[int], range] = -1
     ) -> List[str]:
         """Extract raw text streams from the specified page indices."""
         if self.__pdf is None:
             return []
         if pages == -1:
-            pages = range(self.totalPages())
+            pages = range(self.total_pages())
         elif isinstance(pages, int):
             pages = [pages]
         page_data: List[str] = []
@@ -97,6 +103,8 @@ class PDFReader:
             page_data.append(txt or "")
         return page_data
 
+    extractText = extract_text
+
 
 class PDFWriter:
     """Assemble recognized text boxes, cropped figures, and tables into an output PDF."""
@@ -105,69 +113,73 @@ class PDFWriter:
         self,
         filename: str,
         mode: str = "w",
-        pageSize: Tuple[int, int] = (750, 1000),
+        page_size: Tuple[int, int] = (750, 1000),
     ) -> None:
-        self.__pdfData = {"pages": []}
+        self.__pdf_data = {"pages": []}
         self.__filename = filename
         self.__mode = mode
-        self.__pageSize = pageSize
-        self.__textSize = 12
-        self.__textColr = (0, 0, 0)
+        self.__page_size = page_size
+        self.__text_size = 12
+        self.__text_colr = (0, 0, 0)
 
-    def newPage(self) -> None:
-        self.__pdfData["pages"].append({"text": [], "images": [], "tables": []})
+    def new_page(self) -> None:
+        self.__pdf_data["pages"].append({"text": [], "images": [], "tables": []})
 
-    def _currentPage(self) -> dict:
-        if not self.__pdfData["pages"]:
-            self.newPage()
-        return self.__pdfData["pages"][-1]
+    newPage = new_page
 
-    def addText(
+    def _current_page(self) -> dict:
+        if not self.__pdf_data["pages"]:
+            self.new_page()
+        return self.__pdf_data["pages"][-1]
+
+    def add_text(
         self,
-        rectOrData: Union[Rect, dict],
-        recognizedText: Optional[str] = None,
+        rect_or_data: Union[Rect, dict],
+        recognized_text: Optional[str] = None,
     ) -> None:
-        page = self._currentPage()
-        if isinstance(rectOrData, Rect):
-            x, y = rectOrData["lowerLeft"]
+        page = self._current_page()
+        if isinstance(rect_or_data, Rect):
+            x, y = rect_or_data["lowerLeft"]
             page["text"].append(
                 {
                     "x": x,
                     "y": y,
-                    "width": max(10, rectOrData.width()),
-                    "height": max(8, rectOrData.height()),
+                    "width": max(10, rect_or_data.width()),
+                    "height": max(8, rect_or_data.height()),
                     "size": 11,
-                    "colr": rectOrData.colr or (0, 0, 0),
+                    "colr": rect_or_data.colr or (0, 0, 0),
                     "sizeChanged": True,
                     "colrChanged": True,
-                    "text": recognizedText or "",
+                    "text": recognized_text or "",
                 }
             )
             return
 
-        textData = rectOrData
-        tData = {
-            "x": textData.get("x", 10),
-            "y": textData.get("y", 10),
-            "width": textData.get("width", 40),
-            "height": textData.get("height", 10),
+        text_data = rect_or_data
+        t_data = {
+            "x": text_data.get("x", 10),
+            "y": text_data.get("y", 10),
+            "width": text_data.get("width", 40),
+            "height": text_data.get("height", 10),
             "sizeChanged": False,
             "colrChanged": False,
-            "text": textData.get("text", ""),
+            "text": text_data.get("text", ""),
         }
-        if textData.get("size", self.__textSize) != self.__textSize:
-            self.__textSize = textData["size"]
-            tData["size"] = textData["size"]
-            tData["sizeChanged"] = True
-        if textData.get("colr", self.__textColr) != self.__textColr:
-            self.__textColr = textData["colr"]
-            tData["colr"] = textData["colr"]
-            tData["colrChanged"] = True
-        page["text"].append(tData)
+        if text_data.get("size", self.__text_size) != self.__text_size:
+            self.__text_size = text_data["size"]
+            t_data["size"] = text_data["size"]
+            t_data["sizeChanged"] = True
+        if text_data.get("colr", self.__text_colr) != self.__text_colr:
+            self.__text_colr = text_data["colr"]
+            t_data["colr"] = text_data["colr"]
+            t_data["colrChanged"] = True
+        page["text"].append(t_data)
 
-    def addImage(self, rect: Rect, pageImg: np.ndarray) -> None:
-        page = self._currentPage()
-        crop = rect.getImage(pageImg)
+    addText = add_text
+
+    def add_image(self, rect: Rect, page_img: np.ndarray) -> None:
+        page = self._current_page()
+        crop = rect.crop_image(page_img)
         if crop.size > 0:
             x, y = rect["lowerLeft"]
             page["images"].append(
@@ -180,9 +192,11 @@ class PDFWriter:
                 }
             )
 
-    def addTable(self, rect: Rect, pageImg: np.ndarray) -> None:
-        page = self._currentPage()
-        crop = rect.getImage(pageImg)
+    addImage = add_image
+
+    def add_table(self, rect: Rect, page_img: np.ndarray) -> None:
+        page = self._current_page()
+        crop = rect.crop_image(page_img)
         if crop.size > 0:
             x, y = rect["lowerLeft"]
             page["tables"].append(
@@ -195,32 +209,34 @@ class PDFWriter:
                 }
             )
 
+    addTable = add_table
+
     def close(self) -> str:
         if FPDF is None:
             return self.__filename
         pdf = FPDF(orientation="P", unit="mm", format="A4")
         pdf.set_auto_page_break(auto=False)
         pdf.set_font("Helvetica", size=11)
-        scale_x = 210.0 / max(1, self.__pageSize[0])
-        scale_y = 297.0 / max(1, self.__pageSize[1])
+        scale_x = 210.0 / max(1, self.__page_size[0])
+        scale_y = 297.0 / max(1, self.__page_size[1])
 
         temp_files: List[str] = []
-        for p_idx, page in enumerate(self.__pdfData["pages"]):
+        for p_idx, page in enumerate(self.__pdf_data["pages"]):
             pdf.add_page()
-            for textData in page["text"]:
-                if textData.get("sizeChanged") and "size" in textData:
-                    pdf.set_font_size(textData["size"])
-                if textData.get("colrChanged") and "colr" in textData:
-                    pdf.set_text_color(*textData["colr"])
-                pdf.set_xy(textData["x"] * scale_x, textData["y"] * scale_y)
+            for text_data in page["text"]:
+                if text_data.get("sizeChanged") and "size" in text_data:
+                    pdf.set_font_size(text_data["size"])
+                if text_data.get("colrChanged") and "colr" in text_data:
+                    pdf.set_text_color(*text_data["colr"])
+                pdf.set_xy(text_data["x"] * scale_x, text_data["y"] * scale_y)
                 safe_txt = (
-                    textData["text"]
+                    text_data["text"]
                     .encode("latin-1", errors="replace")
                     .decode("latin-1")
                 )
                 pdf.cell(
-                    textData["width"] * scale_x,
-                    textData["height"] * scale_y,
+                    text_data["width"] * scale_x,
+                    text_data["height"] * scale_y,
                     safe_txt,
                 )
 
@@ -248,9 +264,12 @@ class PDFWriter:
         return self.__filename
 
 
-def superPDF(fileName: str, mode: str = "r") -> Union[PDFReader, PDFWriter]:
+def open_pdf(file_name: str, mode: str = "r") -> Union[PDFReader, PDFWriter]:
     if mode == "r":
-        return PDFReader(fileName)
+        return PDFReader(file_name)
     if mode == "w":
-        return PDFWriter(fileName)
+        return PDFWriter(file_name)
     raise ValueError(f"Mode not recognized: {mode}")
+
+
+superPDF = open_pdf

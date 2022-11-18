@@ -55,15 +55,13 @@ class Rect(Rectangle):
         )
 
     def __getitem__(self, index: Union[str, int]):
-        # Note: in top-left image coordinates, y1 is the upper edge and y2 is the lower edge.
-        # Keys follow the original convention used across detector.py and datasetCreator.py.
-        if index == "lowerLeft" or index == 0:
+        if index in ("lowerLeft", "top_left", 0):
             return (self.__x1, self.__y1)
-        if index == "lowerRight" or index == 3:
+        if index in ("lowerRight", "top_right", 3):
             return (self.__x2, self.__y1)
-        if index == "upperRight" or index == 2:
+        if index in ("upperRight", "bottom_right", 2):
             return (self.__x2, self.__y2)
-        if index == "upperLeft" or index == 1:
+        if index in ("upperLeft", "bottom_left", 1):
             return (self.__x1, self.__y2)
         if index == "width":
             return self.width()
@@ -73,7 +71,7 @@ class Rect(Rectangle):
             return self.area()
         raise KeyError(f"Unknown Rect property: {index}")
 
-    def isOverlapping(
+    def is_overlapping(
         self, rect: Rect, padding: Union[int, Tuple[int, int]] = 0
     ) -> bool:
         """Check whether `self` and `rect` intersect when expanded by `padding`."""
@@ -88,7 +86,9 @@ class Rect(Rectangle):
             or self.__y2 < rect.__y1 - 2 * pad_y
         )
 
-    def intersectionArea(self, rect: Rect) -> int:
+    isOverlapping = is_overlapping
+
+    def intersection_area(self, rect: Rect) -> int:
         """Compute overlapping area in pixels between `self` and `rect`."""
         ix1 = max(self.__x1, rect.__x1)
         iy1 = max(self.__y1, rect.__y1)
@@ -98,19 +98,21 @@ class Rect(Rectangle):
             return 0
         return (ix2 - ix1) * (iy2 - iy1)
 
+    intersectionArea = intersection_area
+
     def iou(self, rect: Rect) -> float:
         """Intersection-over-Union (IoU) in `[0.0, 1.0]`."""
-        inter = self.intersectionArea(rect)
+        inter = self.intersection_area(rect)
         if inter == 0:
             return 0.0
         union = self.area() + rect.area() - inter
         return inter / union if union > 0 else 0.0
 
     def update(
-        self, rect: Rect, padding: int = 0, paddedUpdate: bool = True
+        self, rect: Rect, padding: int = 0, padded_update: bool = True
     ) -> None:
         """Expand `self` in-place to enclose `rect` (propagating `'Image'` type if present)."""
-        if not paddedUpdate:
+        if not padded_update:
             padding = 0
         self.__x1 = min(self.__x1, rect.__x1) - padding
         self.__y1 = min(self.__y1, rect.__y1) - padding
@@ -119,16 +121,18 @@ class Rect(Rectangle):
         if rect.type == "Image":
             self.type = "Image"
 
-    def overlapUpdate(
+    def overlap_update(
         self, rect: Rect, padding: Union[int, Tuple[int, int]] = 0
     ) -> bool:
         """If `rect` overlaps `self`, merge `rect` into `self` and return True."""
-        result = self.isOverlapping(rect, padding)
+        result = self.is_overlapping(rect, padding)
         if result:
             self.update(rect)
         return result
 
-    def getImage(self, img: np.ndarray) -> np.ndarray:
+    overlapUpdate = overlap_update
+
+    def crop_image(self, img: np.ndarray) -> np.ndarray:
         """Crop the image subarray `[y1:y2, x1:x2]` clamped to `img` bounds."""
         h, w = img.shape[:2]
         x1 = max(0, min(w, self.__x1))
@@ -137,13 +141,17 @@ class Rect(Rectangle):
         y2 = max(y1, min(h, self.__y2))
         return img[y1:y2, x1:x2]
 
-    def getblocks(self, blocksize: int) -> List[Tuple[int, int]]:
+    getImage = crop_image
+
+    def get_blocks(self, block_size: int) -> List[Tuple[int, int]]:
         """Return `(row_block, col_block)` spatial grid cells covered by this rectangle."""
-        x1 = max(0, self.__x1 // blocksize)
-        y1 = max(0, self.__y1 // blocksize)
-        x2 = max(x1 + 1, math.ceil(self.__x2 / blocksize))
-        y2 = max(y1 + 1, math.ceil(self.__y2 / blocksize))
+        x1 = max(0, self.__x1 // block_size)
+        y1 = max(0, self.__y1 // block_size)
+        x2 = max(x1 + 1, math.ceil(self.__x2 / block_size))
+        y2 = max(y1 + 1, math.ceil(self.__y2 / block_size))
         return [(y, x) for y in range(y1, y2) for x in range(x1, x2)]
+
+    getblocks = get_blocks
 
     def __str__(self) -> str:
         return self.__repr__()

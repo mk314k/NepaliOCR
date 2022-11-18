@@ -50,14 +50,18 @@ class Point:
     def __sub__(self, point: Union[Point, tuple, list]) -> Point:
         return Point(self.__x - point[0], self.__y - point[1])
 
-    def isUpperRightTo(self, point: Point) -> bool:
+    def is_upper_right_to(self, point: Point) -> bool:
         """Return True if `self` lies at or above/right of `point`."""
         return self.__x >= point.__x and self.__y >= point.__y
 
-    def minXYCompare(self, point: Point) -> Point:
+    def min_xy(self, point: Point) -> Point:
         """Return componentwise minimum `(min(x1, x2), min(y1, y2))`."""
         return Point(min(self.__x, point.__x), min(self.__y, point.__y))
 
-    def maxXYCompare(self, point: Point) -> Point:
+    def max_xy(self, point: Point) -> Point:
         """Return componentwise maximum `(max(x1, x2), max(y1, y2))`."""
         return Point(max(self.__x, point.__x), max(self.__y, point.__y))
+
+    isUpperRightTo = is_upper_right_to
+    minXYCompare = min_xy
+    maxXYCompare = max_xy
