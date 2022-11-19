@@ -2,67 +2,75 @@
 End-to-end page and PDF OCR pipeline combining `detector.py` and `recognizer.py`.
 """
 import os
-from typing import Dict, List
+from typing import Dict, List, Optional
 import cv2
 import numpy as np
 
+from nepali_ocr.detector import detect, double_contour_detect
 from nepali_ocr.io_pdf import PDFReader, PDFWriter
-from nepali_ocr.detector import detect, doubleContourDetect
 from nepali_ocr.recognizer import recognize
 
 
-def processImagePage(
-    img: np.ndarray, modelPath: str = ""
+def process_image_page(
+    img: np.ndarray, model_path: str = "", modelPath: Optional[str] = None
 ) -> Dict[str, List[dict]]:
     """
     Detect layout regions on `img` and run OCR on all `'text'` boxes in reading order.
     Returns a dictionary grouped by region type (`'text'`, `'Image'`, `'Table'`).
     """
-    extractedData = doubleContourDetect(img)
+    if modelPath is not None:
+        model_path = modelPath
+    extracted_data = double_contour_detect(img)
     summary: Dict[str, List[dict]] = {"text": [], "Image": [], "Table": []}
 
-    for dataRect in extractedData.readingOrder():
-        crop = dataRect.getImage(img)
-        if dataRect.type == "text":
-            if dataRect.width() < 14 or dataRect.height() < 10:
+    for data_rect in extracted_data.reading_order():
+        crop = data_rect.crop_image(img)
+        if data_rect.type == "text":
+            if data_rect.width() < 14 or data_rect.height() < 10:
                 continue
             txt = (
-                recognize(crop, modelPath=modelPath)
-                if modelPath
+                recognize(crop, model_path=model_path)
+                if model_path
                 else recognize(crop)
             )
-            summary["text"].append({"rect": dataRect, "text": txt})
-        elif dataRect.type == "Image":
-            summary["Image"].append({"rect": dataRect, "crop": crop})
-        elif dataRect.type == "Table":
-            summary["Table"].append({"rect": dataRect, "crop": crop})
+            summary["text"].append({"rect": data_rect, "text": txt})
+        elif data_rect.type == "Image":
+            summary["Image"].append({"rect": data_rect, "crop": crop})
+        elif data_rect.type == "Table":
+            summary["Table"].append({"rect": data_rect, "crop": crop})
     return summary
 
 
-def main(fileName: str) -> PDFWriter:
-    """Rasterize `fileName`, run layout detection + OCR per page, and write `<name>-out.pdf`."""
-    pdfIn = PDFReader(fileName, mode="r")
-    imgNames = pdfIn.toImage()
-    pdfOut = PDFWriter(fileName[:-4] + "-out.pdf", mode="w")
+processImagePage = process_image_page
 
-    for imgName in imgNames:
-        pdfOut.newPage()
-        img = cv2.imread(imgName)
+
+def process_pdf(file_name: str) -> PDFWriter:
+    """Rasterize `file_name`, run layout detection + OCR per page, and write `<name>-out.pdf`."""
+    pdf_in = PDFReader(file_name, mode="r")
+    img_names = pdf_in.to_image()
+    pdf_out = PDFWriter(file_name[:-4] + "-out.pdf", mode="w")
+
+    for img_name in img_names:
+        pdf_out.new_page()
+        img = cv2.imread(img_name)
         if img is None:
             continue
-        extractedData = detect(img)
+        extracted_data = detect(img)
 
-        for dataRect in extractedData.readingOrder():
-            if dataRect.type == "text":
-                recognizedText = recognize(dataRect.getImage(img))
-                pdfOut.addText(dataRect, recognizedText)
-            elif dataRect.type == "Image":
-                pdfOut.addImage(dataRect, img)
-            elif dataRect.type == "Table":
-                pdfOut.addTable(dataRect, img)
+        for data_rect in extracted_data.reading_order():
+            if data_rect.type == "text":
+                recognized_text = recognize(data_rect.crop_image(img))
+                pdf_out.add_text(data_rect, recognized_text)
+            elif data_rect.type == "Image":
+                pdf_out.add_image(data_rect, img)
+            elif data_rect.type == "Table":
+                pdf_out.add_table(data_rect, img)
 
-    pdfOut.close()
-    return pdfOut
+    pdf_out.close()
+    return pdf_out
+
+
+main = process_pdf
 
 
 if __name__ == "__main__":
@@ -71,10 +79,10 @@ if __name__ == "__main__":
     if len(sys.argv) > 1 and os.path.isfile(sys.argv[1]):
         target = sys.argv[1]
         if target.lower().endswith(".pdf"):
-            main(target)
+            process_pdf(target)
         else:
             page_img = cv2.imread(target)
-            res = processImagePage(page_img)
+            res = process_image_page(page_img)
             print(
                 f"Detected {len(res['text'])} text regions, "
                 f"{len(res['Image'])} images, {len(res['Table'])} tables."

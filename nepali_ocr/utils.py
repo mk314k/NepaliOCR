@@ -28,11 +28,20 @@ CRNNModelPath = os.path.join(
     "crnn_nepali_ocr.pt",
 )
 
-L1Distance = lambda p1p2: abs(p1p2[1] - p1p2[0])
-L1DistanceFrac = lambda p1p2: L1Distance(p1p2) / max(1e-9, abs(p1p2[0]))
+
+def l1_distance(p1p2: Tuple[float, float]) -> float:
+    return abs(p1p2[1] - p1p2[0])
 
 
-def showImage(name: str, img: np.ndarray) -> None:
+def l1_distance_frac(p1p2: Tuple[float, float]) -> float:
+    return l1_distance(p1p2) / max(1e-9, abs(p1p2[0]))
+
+
+L1Distance = l1_distance
+L1DistanceFrac = l1_distance_frac
+
+
+def show_image(name: str, img: np.ndarray) -> None:
     """Display an image resized to `(750, 1000)` when running in an interactive GUI session."""
     if os.environ.get("NEPALI_OCR_HEADLESS", "1") == "1":
         return
@@ -40,9 +49,12 @@ def showImage(name: str, img: np.ndarray) -> None:
     cv2.imshow(name, imgr)
 
 
-def colorSpread(img8: np.ndarray, pointSet: np.ndarray) -> float:
+showImage = show_image
+
+
+def color_spread(img8: np.ndarray, point_set: np.ndarray) -> float:
     """Compute standard deviation of primary channel intensities along a contour."""
-    points = pointSet.flatten()
+    points = point_set.flatten()
     if len(points) < 2:
         return 0.0
     h, w = img8.shape[:2]
@@ -55,14 +67,20 @@ def colorSpread(img8: np.ndarray, pointSet: np.ndarray) -> float:
     return float(np.std(np.array(colors)))
 
 
-def colorCount(rect: Rect, imgc: np.ndarray) -> Tuple[int, float]:
+colorSpread = color_spread
+
+
+def color_count(rect: Rect, imgc: np.ndarray) -> Tuple[int, float]:
     """Return `(unique_color_count, std_dev)` inside `rect` on quantized image `imgc`."""
-    crop = rect.getImage(imgc)
+    crop = rect.crop_image(imgc)
     if crop.size == 0:
         return 0, 0.0
     flat = crop.reshape(-1, crop.shape[-1]) if crop.ndim == 3 else crop.flatten()
     u = np.unique(flat, axis=0)
     return len(u), float(np.std(flat))
+
+
+colorCount = color_count
 
 
 def cascading(funcs, img: np.ndarray, repeat: int = 1) -> np.ndarray:
@@ -75,13 +93,15 @@ def cascading(funcs, img: np.ndarray, repeat: int = 1) -> np.ndarray:
     return imgp
 
 
-def boundingObject(contour: np.ndarray) -> Tuple[Tuple[int, int], Tuple[int, int]]:
+def bounding_object(contour: np.ndarray) -> Tuple[Tuple[int, int], Tuple[int, int]]:
     """Compute tight `(min_x, min_y)` and `(max_x, max_y)` bounds of a contour."""
     pts = contour.reshape(-1, 2)
     min_xy = pts.min(axis=0)
     max_xy = pts.max(axis=0)
     return (int(min_xy[0]), int(min_xy[1])), (int(max_xy[0]), int(max_xy[1]))
 
+
+boundingObject = bounding_object
 
 nepaliKeyBoardPreeti: Dict[str, str] = {
     "a": "ब", "b": "द", "c": "अ", "d": "म", "e": "भ", "f": "ा", "g": "न", "h": "ज", "i": "ष्",
@@ -192,7 +212,7 @@ def _preeti_token_to_uni(token: str) -> str:
     return res
 
 
-def preeti2Uni(text: str) -> str:
+def preeti_to_unicode(text: str) -> str:
     """Convert Preeti-encoded text to Unicode Devanagari."""
     lines = text.split("\n")
     converted_lines: List[str] = []
@@ -202,6 +222,8 @@ def preeti2Uni(text: str) -> str:
         converted_lines.append(" ".join(conv_tokens))
     return "\n".join(converted_lines)
 
+
+preeti2Uni = preeti_to_unicode
 
 recognizableCharacters: List[str] = [
     "A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L", "M",

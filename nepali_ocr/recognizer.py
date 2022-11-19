@@ -13,7 +13,7 @@ _CACHED_MODEL: Optional[CRNN] = None
 _CACHED_MODEL_PATH: Optional[str] = None
 
 
-def preProcess(
+def preprocess_crop(
     img: np.ndarray,
     target_shape: Tuple[int, int] = (32, 192),
     dynamic_width: bool = True,
@@ -68,7 +68,10 @@ def preProcess(
     return canvas[None, :, :, None]
 
 
-def postProcess(pred: np.ndarray) -> str:
+preProcess = preprocess_crop
+
+
+def ctc_greedy_decode(pred: np.ndarray) -> str:
     """Greedy CTC decode: collapse repeated adjacent indices and drop blank tokens."""
     probs = np.asarray(pred)
     if probs.ndim == 3:
@@ -84,21 +87,29 @@ def postProcess(pred: np.ndarray) -> str:
     return "".join(decoded_chars)
 
 
-def getRecognizerModel(modelPath: str = CRNNModelPath) -> CRNN:
-    """Return a cached `CRNN` instance loaded with `modelPath`."""
+postProcess = ctc_greedy_decode
+
+
+def get_recognizer_model(model_path: str = CRNNModelPath) -> CRNN:
+    """Return a cached `CRNN` instance loaded with `model_path`."""
     global _CACHED_MODEL, _CACHED_MODEL_PATH
-    if _CACHED_MODEL is None or _CACHED_MODEL_PATH != modelPath:
+    if _CACHED_MODEL is None or _CACHED_MODEL_PATH != model_path:
         model = CRNN()
-        if modelPath and os.path.isfile(modelPath):
-            model.loadWeights(modelPath)
+        if model_path and os.path.isfile(model_path):
+            model.load_weights(model_path)
         _CACHED_MODEL = model
-        _CACHED_MODEL_PATH = modelPath
+        _CACHED_MODEL_PATH = model_path
     return _CACHED_MODEL
 
 
-def recognize(img: np.ndarray, modelPath: str = CRNNModelPath) -> str:
+getRecognizerModel = get_recognizer_model
+
+
+def recognize(img: np.ndarray, model_path: str = CRNNModelPath, modelPath: Optional[str] = None) -> str:
     """Recognize the Devanagari/English text in a cropped word or line image."""
-    imgp = preProcess(img)
-    recogModel = getRecognizerModel(modelPath)
-    pred = recogModel.predict(imgp)
-    return postProcess(pred)
+    if modelPath is not None:
+        model_path = modelPath
+    imgp = preprocess_crop(img)
+    recog_model = get_recognizer_model(model_path)
+    pred = recog_model.predict(imgp)
+    return ctc_greedy_decode(pred)

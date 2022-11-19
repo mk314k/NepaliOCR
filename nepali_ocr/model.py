@@ -264,14 +264,16 @@ class CRNN:
         self.__net.eval()
         return loss_history
 
-    def loadWeights(self, modelPath: str) -> None:
-        """Load state dict from `modelPath` onto the active device."""
-        if not modelPath or not os.path.isfile(modelPath):
+    def load_weights(self, model_path: str) -> None:
+        """Load state dict from `model_path` onto the active device."""
+        if not model_path or not os.path.isfile(model_path):
             return
-        state = torch.load(modelPath, map_location=self.__device)
+        state = torch.load(model_path, map_location=self.__device)
         self.__net.load_state_dict(state, strict=False)
         self.__net.eval()
         self.__predictionModelSet = True
+
+    loadWeights = load_weights
 
     def predict(self, img: np.ndarray) -> np.ndarray:
         """
