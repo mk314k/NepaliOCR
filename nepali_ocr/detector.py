@@ -104,7 +104,7 @@ def merge_and_classify(
             c_area = cv2.contourArea(contour)
             if l1_distance_frac((new_rect.area(), c_area)) < AREAFACTOR:
                 new_rect.type = "Table" if cspr == 0 else "Image"
-            if new_rect.type == "text" and cspr > 14:
+            if new_rect.type == "text" and cspr > 14 and h >= 34:
                 c_cnt, _ = color_count(new_rect, img8)
                 if c_cnt > 12:
                     new_rect.type = "Image"

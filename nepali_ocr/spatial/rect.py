@@ -118,7 +118,9 @@ class Rect(Rectangle):
         self.__y1 = min(self.__y1, rect.__y1) - padding
         self.__x2 = max(self.__x2, rect.__x2) + padding
         self.__y2 = max(self.__y2, rect.__y2) + padding
-        if rect.type == "Image":
+        if rect.type == "Image" or (
+            self.type == "text" and self.width() >= 75 and self.height() >= 75
+        ):
             self.type = "Image"
 
     def overlap_update(
