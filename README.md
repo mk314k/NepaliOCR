@@ -2,7 +2,7 @@
 
 Document layout segmentation and bilingual Devanagari/English OCR pipeline for Nepali textbooks.
 
-<img src="assets/gr9sctrain23_detected.jpg" width="460" alt="Detected Page Layout" />
+<img src="assets/gr9sctrain23_detected.jpg" width="840" alt="Layout Detection and CRNN + CTC Recognition Output" />
 
 ## Project Structure
 
@@ -21,6 +21,8 @@ NepaliOCR/
 │   └── docx_parser.py
 ├── tests/
 │   └── test_ocr.py
+├── docs/
+│   └── index.md
 └── assets/
     └── gr9sctrain23_detected.jpg
 ```
@@ -39,13 +41,21 @@ NepaliOCR/
 ### 3. Preeti-to-Unicode Converter (`nepali_ocr/utils.py`)
 - **`preeti_to_unicode`**: Converts legacy Preeti-encoded `.docx`/PDF text streams into Unicode Devanagari, handling multi-keystroke ligatures (`j|m -> क्र`, `km -> फ`), half-forms + `f` (`Kf -> प`), pre-base `'l'` (`ि`) reordering after consonant clusters, and post-typed `'{'` (*reph* `र्`) insertion before the preceding cluster.
 
-## Evaluation
+## Data Sources & Training Data Preparation
 
-Trained on `19,055` word crops extracted from Pages `11–100` of the CDC Nepal Grade 9 Science & Technology textbook (`crnn_nepali_ocr.pt`) and evaluated on unseen chapters and a separate Grade 10 Social Studies textbook:
+Publicly available Nepali textbook PDFs and character datasets that can be used with `tools/dataset_annotator.py` and `CRNN.train`:
+
+- **Curriculum Development Centre (CDC), Ministry of Education, Nepal** ([moecdc.gov.np](https://moecdc.gov.np)): Official Nepali-medium school textbooks (Grades 1–12 Science, Social Studies, Nepali) in digital PDF format.
+- **E-Pustakalaya Digital Library (OLE Nepal)** ([pustakalaya.org](https://pustakalaya.org)): Open-access digital repository hosting CDC curriculum textbooks and Nepali literature PDFs.
+- **UCI Devanagari Handwritten Character Dataset (DHCD)** ([archive.ics.uci.edu/ml/datasets/Devanagari+Handwritten+Character+Dataset](https://archive.ics.uci.edu/ml/datasets/Devanagari+Handwritten+Character+Dataset)): `92,000` character images across `46` Devanagari consonant and digit classes for pretraining or augmentation.
+
+## Evaluation (Toy Training Benchmark)
+
+> **Note:** The results below come from a **toy training setup** trained on `19,055` clean digital word crops extracted from Pages `11–100` of a single CDC Grade 9 Science & Technology textbook PDF. Because the training set is limited to clean, single-font PDF renders, minor character confusions still occur on unseen words (e.g., matra ordering on `"सिंह"`), and performance will degrade on noisy scans or camera images. **For higher accuracy and real-world production usage, train `CRNN` on a larger, multi-font dataset of real scanned documents.**
 
 | Split | Source | Words | Exact Word Accuracy | Character Accuracy (`1 - CER`) |
 | :--- | :--- | :---: | :---: | :---: |
-| Train | Grade 9 Science (`Pages 11–100`) | `2,000` | `100.0%` | `100.0%` |
+| Toy Train | Grade 9 Science (`Pages 11–100`) | `2,000` | `100.0%` | `100.0%` |
 | Unseen Chapters | Grade 9 Science (`Pages 200–214`) | `3,672` | `89.0%` | `95.4%` |
 | Unseen Textbook | Grade 10 Social Studies (`Pages 15–29`) | `3,101` | `89.6%` | `96.8%` |
 
