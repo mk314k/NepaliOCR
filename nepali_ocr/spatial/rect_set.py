@@ -131,16 +131,42 @@ class RectSet:
 
     addRect = add_rect
 
-    def reading_order(self, line_tolerance: int = 18) -> List[Rect]:
-        """Sort regions top-to-bottom by line band, and left-to-right within each line."""
+    def reading_order(self, line_tolerance: int = 14) -> List[Rect]:
+        """
+        Group regions into horizontal text lines by vertical-midpoint proximity
+        (`line_tolerance` px), sort lines top-to-bottom, and sort regions within
+        each line strictly left-to-right (`x1`).
+        """
         rects = list(iter(self))
-        return sorted(
-            rects,
-            key=lambda r: (
-                r["lowerLeft"][1] // max(1, line_tolerance),
-                r["lowerLeft"][0],
-            ),
+        if not rects:
+            return []
+
+        # Sort by vertical center first to form horizontal line clusters
+        by_cy = sorted(
+            rects, key=lambda r: 0.5 * (r["lowerLeft"][1] + r["upperRight"][1])
         )
+        lines: List[List[Rect]] = []
+        line_centers: List[float] = []
+
+        for r in by_cy:
+            cy = 0.5 * (r["lowerLeft"][1] + r["upperRight"][1])
+            placed = False
+            for idx, mean_cy in enumerate(line_centers):
+                if abs(cy - mean_cy) <= line_tolerance:
+                    lines[idx].append(r)
+                    n = len(lines[idx])
+                    line_centers[idx] = mean_cy + (cy - mean_cy) / n
+                    placed = True
+                    break
+            if not placed:
+                lines.append([r])
+                line_centers.append(cy)
+
+        ordered: List[Rect] = []
+        for idx in sorted(range(len(lines)), key=lambda i: line_centers[i]):
+            line_rects = sorted(lines[idx], key=lambda r: r["lowerLeft"][0])
+            ordered.extend(line_rects)
+        return ordered
 
     readingOrder = reading_order
 
