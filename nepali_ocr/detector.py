@@ -102,13 +102,22 @@ def merge_and_classify(
         if w < REJECTWIDTHFRAC * img_width and h < REJECTHEIGHTFRAC * img_height:
             cspr = color_spread(img8, contour)
             c_area = cv2.contourArea(contour)
+            aspect = w / float(max(1, h))
             if l1_distance_frac((new_rect.area(), c_area)) < AREAFACTOR:
-                new_rect.type = "Table" if cspr == 0 else "Image"
-            if new_rect.type == "text" and cspr > 14 and h >= 34:
+                if cspr == 0 or aspect > 3.2:
+                    new_rect.type = "Table"
+                else:
+                    new_rect.type = "Image"
+            if new_rect.type == "text" and cspr > 14 and h >= 34 and aspect <= 3.2:
                 c_cnt, _ = color_count(new_rect, img8)
                 if c_cnt > 12:
                     new_rect.type = "Image"
-            extracted_data.add_rect(new_rect, padding)
+            rect_pad = (
+                (0.5, 0.0)
+                if (padding == 0 and new_rect.type == "text" and w <= 22)
+                else padding
+            )
+            extracted_data.add_rect(new_rect, rect_pad)
     return extracted_data
 
 
@@ -315,14 +324,21 @@ def detect(
 def annotate_detected_regions(img: np.ndarray, rects: RectSet) -> np.ndarray:
     """Draw colour-coded bounding boxes: red for `'text'`, blue for `'Image'`, green for `'Table'`."""
     canvas = np.array(img, copy=True)
+    h, w = canvas.shape[:2]
     for rect in rects:
+        x1, y1 = rect["lowerLeft"]
+        x2, y2 = rect["upperRight"]
         if rect.type == "Table":
             colr = (0, 255, 0)
         elif rect.type == "Image":
             colr = (255, 0, 0)
         else:
             colr = (0, 0, 255)
-        cv2.rectangle(canvas, rect["lowerLeft"], rect["upperRight"], colr, 2)
+            x1 = max(0, x1 - 1)
+            y1 = max(0, y1 - 1)
+            x2 = min(w - 1, x2 + 1)
+            y2 = min(h - 1, y2 + 1)
+        cv2.rectangle(canvas, (x1, y1), (x2, y2), colr, 2)
     return canvas
 
 
