@@ -38,6 +38,22 @@ class Rect(Rectangle):
     def width(self) -> int:
         return self.__x2 - self.__x1
 
+    @property
+    def x1(self) -> int:
+        return self.__x1
+
+    @property
+    def y1(self) -> int:
+        return self.__y1
+
+    @property
+    def x2(self) -> int:
+        return self.__x2
+
+    @property
+    def y2(self) -> int:
+        return self.__y2
+
     def height(self) -> int:
         return self.__y2 - self.__y1
 
@@ -72,18 +88,18 @@ class Rect(Rectangle):
         raise KeyError(f"Unknown Rect property: {index}")
 
     def is_overlapping(
-        self, rect: Rect, padding: Union[int, Tuple[int, int]] = 0
+        self, rect: Rect, padding: Union[int, float, Tuple[float, float]] = 0
     ) -> bool:
         """Check whether `self` and `rect` intersect when expanded by `padding`."""
         if isinstance(padding, (int, float)):
-            pad_x, pad_y = int(padding), int(padding)
+            pad_x, pad_y = float(padding), float(padding)
         else:
-            pad_x, pad_y = int(padding[0]), int(padding[1])
+            pad_x, pad_y = float(padding[0]), float(padding[1])
         return not (
-            self.__x1 > rect.__x2 + 2 * pad_x
-            or self.__y1 > rect.__y2 + 2 * pad_y
-            or self.__x2 < rect.__x1 - 2 * pad_x
-            or self.__y2 < rect.__y1 - 2 * pad_y
+            self.__x1 > rect.__x2 + 2.0 * pad_x
+            or self.__y1 > rect.__y2 + 2.0 * pad_y
+            or self.__x2 < rect.__x1 - 2.0 * pad_x
+            or self.__y2 < rect.__y1 - 2.0 * pad_y
         )
 
     isOverlapping = is_overlapping
@@ -134,13 +150,14 @@ class Rect(Rectangle):
 
     overlapUpdate = overlap_update
 
-    def crop_image(self, img: np.ndarray) -> np.ndarray:
-        """Crop the image subarray `[y1:y2, x1:x2]` clamped to `img` bounds."""
+    def crop_image(self, img: np.ndarray, pad: int = 0) -> np.ndarray:
+        """Crop the image subarray `[y1:y2, x1:x2]` expanded by `pad` pixels and clamped to `img` bounds."""
         h, w = img.shape[:2]
-        x1 = max(0, min(w, self.__x1))
-        y1 = max(0, min(h, self.__y1))
-        x2 = max(x1, min(w, self.__x2))
-        y2 = max(y1, min(h, self.__y2))
+        p = max(0, int(pad))
+        x1 = max(0, min(w, self.__x1 - p))
+        y1 = max(0, min(h, self.__y1 - p))
+        x2 = max(x1, min(w, self.__x2 + p))
+        y2 = max(y1, min(h, self.__y2 + p))
         return img[y1:y2, x1:x2]
 
     getImage = crop_image
