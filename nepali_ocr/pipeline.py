@@ -24,10 +24,10 @@ def process_image_page(
     summary: Dict[str, List[dict]] = {"text": [], "Image": [], "Table": []}
 
     for data_rect in extracted_data.reading_order():
-        crop = data_rect.crop_image(img)
         if data_rect.type == "text":
-            if data_rect.width() < 14 or data_rect.height() < 10:
+            if data_rect.width() < 8 or data_rect.height() < 10:
                 continue
+            crop = data_rect.crop_image(img, pad=1)
             txt = (
                 recognize(crop, model_path=model_path)
                 if model_path
@@ -35,9 +35,9 @@ def process_image_page(
             )
             summary["text"].append({"rect": data_rect, "text": txt})
         elif data_rect.type == "Image":
-            summary["Image"].append({"rect": data_rect, "crop": crop})
+            summary["Image"].append({"rect": data_rect, "crop": data_rect.crop_image(img)})
         elif data_rect.type == "Table":
-            summary["Table"].append({"rect": data_rect, "crop": crop})
+            summary["Table"].append({"rect": data_rect, "crop": data_rect.crop_image(img)})
     return summary
 
 
@@ -59,7 +59,7 @@ def process_pdf(file_name: str) -> PDFWriter:
 
         for data_rect in extracted_data.reading_order():
             if data_rect.type == "text":
-                recognized_text = recognize(data_rect.crop_image(img))
+                recognized_text = recognize(data_rect.crop_image(img, pad=1))
                 pdf_out.add_text(data_rect, recognized_text)
             elif data_rect.type == "Image":
                 pdf_out.add_image(data_rect, img)

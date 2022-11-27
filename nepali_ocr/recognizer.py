@@ -7,6 +7,7 @@ import cv2
 import numpy as np
 
 from nepali_ocr.model import CRNN
+from nepali_ocr.postprocess import postprocess_devanagari
 from nepali_ocr.utils import CTC_BLANK_INDEX, CRNNModelPath, idx_to_char
 
 _CACHED_MODEL: Optional[CRNN] = None
@@ -71,8 +72,11 @@ def preprocess_crop(
 preProcess = preprocess_crop
 
 
-def ctc_greedy_decode(pred: np.ndarray) -> str:
-    """Greedy CTC decode: collapse repeated adjacent indices and drop blank tokens."""
+def ctc_greedy_decode(pred: np.ndarray, apply_postprocess: bool = True) -> str:
+    """
+    Greedy CTC decode: collapse repeated adjacent indices, drop blank tokens,
+    and apply Devanagari linguistic normalization when `apply_postprocess=True`.
+    """
     probs = np.asarray(pred)
     if probs.ndim == 3:
         probs = probs[0]
@@ -84,7 +88,8 @@ def ctc_greedy_decode(pred: np.ndarray) -> str:
         if idx != prev_idx and idx != CTC_BLANK_INDEX and idx in idx_to_char:
             decoded_chars.append(idx_to_char[idx])
         prev_idx = idx
-    return "".join(decoded_chars)
+    raw = "".join(decoded_chars)
+    return postprocess_devanagari(raw) if apply_postprocess else raw
 
 
 postProcess = ctc_greedy_decode

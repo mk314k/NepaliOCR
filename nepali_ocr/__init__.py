@@ -12,6 +12,7 @@ from nepali_ocr.detector import (
 from nepali_ocr.io_pdf import PDFReader, PDFWriter, open_pdf, superPDF
 from nepali_ocr.model import CRNN
 from nepali_ocr.pipeline import process_image_page, process_pdf, processImagePage
+from nepali_ocr.postprocess import linguistic_postprocess, postprocess_devanagari
 from nepali_ocr.recognizer import (
     ctc_greedy_decode,
     postProcess,
@@ -66,6 +67,8 @@ __all__ = [
     "process_image_page",
     "processImagePage",
     "process_pdf",
+    "postprocess_devanagari",
+    "linguistic_postprocess",
     "preeti_to_unicode",
     "preeti2Uni",
     "unicodes",
