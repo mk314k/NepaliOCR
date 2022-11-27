@@ -129,6 +129,7 @@ _PREETI_MULTI_REPLACEMENTS: Tuple[Tuple[str, str], ...] = (
     ("If", "क्ष"),
     ("1f", "ज्ञा"),
     ("0f", "ण"),
+    ("O{", "ई"),
     ("˜", "ऽ"),
 )
 
