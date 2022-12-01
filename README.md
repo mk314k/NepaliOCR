@@ -2,7 +2,7 @@
 
 Document layout segmentation and bilingual Devanagari/English OCR pipeline for Nepali textbooks.
 
-<img src="assets/gr9sctrain23_detected.jpg" width="840" alt="Layout Detection and CRNN + CTC Recognition Output" />
+<img src="display.gif" width="840" alt="NepaliOCR Pipeline Walkthrough and CRNN + CTC Recognition" />
 
 ## Project Structure
 
@@ -13,6 +13,7 @@ NepaliOCR/
 │   ├── detector.py       # Iterative contour bridging, HSV region classifier, projection profiles
 │   ├── model.py          # PyTorch 4-band vertical residual CRNN + BiLSTM + CTC loss
 │   ├── recognizer.py     # Aspect-preserving crop preprocessing and greedy CTC decoding
+│   ├── postprocess.py    # Devanagari linguistic normalization and visual-to-logical ordering
 │   ├── utils.py          # Preeti-to-Unicode converter, color heuristics, 140-char vocabulary
 │   ├── io_pdf.py         # PDFReader rasterization and PDFWriter layout reconstruction
 │   └── pipeline.py       # End-to-end page image and PDF OCR pipeline
@@ -23,8 +24,9 @@ NepaliOCR/
 │   └── test_ocr.py
 ├── docs/
 │   └── index.md
-└── assets/
-    └── gr9sctrain23_detected.jpg
+├── assets/
+│   └── gr9sctrain23_detected.jpg
+└── display.gif
 ```
 
 ## Architecture
